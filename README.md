@@ -26,7 +26,7 @@ Install it as any other Islandora Drupal module in sites/all/modules.
 
 ## Documentation
 
-The CSV file needs to be comma separate with quotation marks around all values. For sample CSV files see the "examples" directory.
+The CSV file needs to be comma separate with quotation marks around all values. For sample CSV files see the "examples" directory. Developement is underway to accommodate Joanna's preferred TSV and if Steve gets his way even pipe-delimited files.
 
 The CSV import form prompts for
 * Content Model (all items need to use the same content model)
