@@ -1,0 +1,4 @@
+name = ICG CSV Import
+description = Islandora Consortial Group CSV Importer
+package = ICG Modules
+core = 7.x
