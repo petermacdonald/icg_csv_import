@@ -16,25 +16,25 @@ Tuque is expected to be in one of two paths:
 * sites/all/libraries/tuque (libraries directory may need to be created)
 * islandora_folder/libraries/tuque
 
-### Optional Requirements
-
-[unknown]
-
 ## Installation
 
-[unknown]
+Install it as any other Islandora Drupal module in sites/all/modules.
 
 ## Configuration
 
-[unknown]
-
-### Customization
-
-[Customize ingest forms](http://github.com/Islandora/islandora/wiki/Multi-paged-Ingest-Forms)
+[Don't know if any Drupal configure menu will be necessary.]
 
 ## Documentation
 
-[unknown]
+The CSV file needs to be comma separate with quotation marks around all values. Fo sample CSV files see the "examples" directory.
+
+The CSV import form prompts for
+* Content Model (all items need to use the same content model)
+* Metadadata schema (MODS, other may be added later)
+* namespace (all items need to use the same namespace)
+* file to import (the CSV file)
+
+If the file uploaded in not valid, it will not be ingestable.
 
 ## Troubleshooting/Issues
 
@@ -49,7 +49,7 @@ Current maintainers:
 
 * [Steve Young](https://github.com/hamhpc)
 * [Peter MacDonald](https://github.com/petermacdonald)
-* [Jessika Drmasich](https:/github.com/
+* [Jessika Drmacich](https:/github.com/jgd1)
 
 ## Development
 
