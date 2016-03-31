@@ -6,8 +6,8 @@
 function icg_csv_import_form($collection) {
   $form = array();
 
-
-  module_load_include('inc', 'islandora_solution_pack_collection', 'includes/utilities');
+  $fun = module_load_include('inc', 'islandora_solution_pack_collection', 'includes/utilities');
+  dpm($fun);
 
   $form['cm_select'] = array(
     '#type' => 'select',
@@ -16,9 +16,13 @@ function icg_csv_import_form($collection) {
     '#options' => islandora_basic_collection_get_content_models_as_form_options(islandora_get_content_models()),
   );
 
+
+
   return render($form);
 }
 
+
+//islandora_get_content_models()
 
 /**
  * CSV Import Form Submit Callback
