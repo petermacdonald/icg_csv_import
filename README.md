@@ -34,7 +34,7 @@ Tuque is expected to be in one of two paths:
 
 ## Documentation
 
-[unknown]
+The CSV file needs to be comma separate with quotation marks around all values. Fo sample CSV files see the "examples" directory.
 
 ## Troubleshooting/Issues
 
@@ -49,7 +49,7 @@ Current maintainers:
 
 * [Steve Young](https://github.com/hamhpc)
 * [Peter MacDonald](https://github.com/petermacdonald)
-* [Jessika Drmasich](https:/github.com/
+* [Jessika Drmacich](https:/github.com/jgd1)
 
 ## Development
 
