@@ -34,6 +34,8 @@ The CSV import form prompts for
 * namespace (all items need to use the same namespace)
 * file to import (the CSV file)
 
+If the file uploaded in not valid, it will not be ingestable.
+
 ## Troubleshooting/Issues
 
 Having problems or solved a problem? Check out the Islandora google groups for a solution.
