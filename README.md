@@ -33,8 +33,8 @@ The CSV import form prompts for
 * Metadata schema (MODS, other may be added later)
 * namespace (all items need to use the same namespace)
 * file to import (the CSV file)
-
-If the file uploaded in not valid, it will not be ingestable.
+** If the file uploaded in not valid, it will not be ingestable.
+* field-by-field mapping of the CSV file to MODS elements.
 
 ## Troubleshooting/Issues
 
