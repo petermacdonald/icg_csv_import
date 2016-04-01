@@ -1,11 +1,10 @@
 <?php
 
-// delimiter not working... not sure why yet!
 function icg_csv_load_csv_data($csvfile, $delimiter=",") {
   $fh = fopen($csvfile, "r");
   $contentsA = array();
  
-  while (($data = fgetcsv($fh,0,$delimter)) !== FALSE) {
+  while (($data = fgetcsv($fh,0,$delimiter)) !== FALSE) {
      array_push($contentsA, $data);
   }
   fclose($fh);
@@ -35,6 +34,8 @@ array_walk_recursive($csvA, htmlspecialchars); //'icg_remove_special_chars');
         array_push($contentsA, $csv);
       }
   } // end WHILE csv is open
+
+// TODO we need to further delimit by semicolon or some other delimiter for multiple values in fields
 
   // now, we have two arrays: one with the first line, and the other with the rest of the delimited data
   /*
