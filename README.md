@@ -4,8 +4,7 @@ ICG CSV Import Module
 
 ICG Main site:  https://sites.google.com/site/islandoraconsortiagroup/home
 
-This modules provisions .csv import of metadata into a pre-existing Islandora collection creating a new fedora object with a MODS datastream for each row in the file. 
-
+This modules provisions .csv import of metadata into a pre-existing Islandora collection creating a new fedora object with a MODS datastream for each row in the .csv file. 
 
 ## Requirements
 
@@ -28,7 +27,7 @@ Install it as any other Islandora Drupal module in sites/all/modules.
 
 ## Documentation
 
-The module assumes the first row in the .csv includes headers. Those headers are then associated with MODS fields and attributes. The module assumes multiple values per field are pipe separated. The module allows the user to add the user to select "inactive" for the status of the resulting Fedora objects.
+The module assumes the first row in the .csv file are the column headers. After uploading the .csv, the user associates those headers with the correct MODS fields and attributes. The module assumes pipe-separation for multiple values per field in the .csv file. On upload, the user can select "inactive" for the status of the resulting Fedora objects.
 
 The CSV file needs to be comma separate with quotation marks around all values. For sample CSV files see the "examples" directory. 
 
