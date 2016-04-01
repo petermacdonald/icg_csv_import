@@ -4,6 +4,8 @@ ICG CSV Import Module
 
 ICG Main site:  https://sites.google.com/site/islandoraconsortiagroup/home
 
+A module to allow for cvs import
+
 
 ## Requirements
 
