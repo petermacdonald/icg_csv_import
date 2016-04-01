@@ -48,6 +48,7 @@ Having problems or solved a problem? Check out the Islandora google groups for a
 Current maintainers:
 
 https://sites.google.com/site/islandoraconsortiagroup/home
+
 http://commonmedia.com
 
 ## Development
