@@ -1,3 +1,5 @@
+<?php
+
 /**
 * @file
 * batch.test
@@ -15,9 +17,9 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
   */
   public static function getInfo() {
     return array(
-      'name' => t('ICG CSV Import batch.inc Test),
+      'name' => t('Batch'),
       'desc' => t('Test functions in the batch.inc code.'),
-      'group' => t('ICG Tests'),
+      'group' => t('ICG CSV Import'),
     );
   }
 
@@ -28,12 +30,12 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
     // Here, you can establish class variables before the actual setup phase.
     // After the setup is complete, the Drupal database will mimic a fresh
     // install, so this is the time to grab anything you need.
-    // $this->classVariable = drupal_get_variable('some_variable', NULL);
+    //   $this->classVariable = drupal_get_variable('some_variable', NULL);
     // Now, we run the parent setUp(), which takes an array of strings
     // representing modules to enable.
-    parent::setUp(array('icg_csv_import'));
+    //   parent::setUp(array('icg_csv_import'));
     // After here, if we'd like, we can use those class variables.
-    // drupal_set_variable('some_variable', $this->classVariable);
+    //   drupal_set_variable('some_variable', $this->classVariable);
   }
 
   public function testBatch() {

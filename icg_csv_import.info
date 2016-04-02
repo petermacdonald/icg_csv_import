@@ -2,3 +2,5 @@ name = ICG CSV Import
 description = Islandora Consortial Group CSV Importer
 package = ICG Modules
 core = 7.x
+testing_api = 2.x
+files[] = tests/batch.test
