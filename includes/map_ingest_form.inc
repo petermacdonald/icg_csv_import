@@ -5,45 +5,84 @@
  * CSV Import Form Callback
  */
 function icg_csv_import_form($form, &$form_state, $collection) {
+  dpm($form_state);
 
-  if (isset($form_state['values'])) {
-    $currstep = $form_state['step'] + 1;
+  if (!isset($form_state['values'])) {
+    $form_state['step'] = 0;
+    $form_state['all_values'] = array();
   }
-  else {
-    $currstep = 0;
-  }
 
-  $form_state['step'] = $currstep;
-  $allsteps = icg_csv_import_get_form($collection);
-  $currform = $allsteps[$currstep];
+  // Build the form parts in 'steps'
+  $form_content = icg_csv_import_get_form($collection);
 
+  // Grab the current 'step'
+  $current_step = $form_state['step'];
 
-  dpm(get_defined_vars());
+  //Return the current page for the step
+  return $form_content[$current_step];
 
-  return $currform;
 }
 
+/**
+ * CSV Import Form Submit
+ */
+function icg_csv_import_form_submit($form, &$form_state) {
+   // Save our values
+  $form_state['all_values'] += $form_state['values'];
 
+  if ($form_state['step'] < 2) {
+    // Do not submit the form
+    $form_state['rebuild'] = TRUE;
+    // Instead go to the next page.
+    $form_state['step']++;
+  } else {
+    dpm($form_state);
+    // do something with all_values...
+  }
+  
+}
+
+/**
+ * @param $collection
+ * @return array
+ */
 function icg_csv_import_get_form($collection) {
   $form = array();
+  module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
-  module_load_include('inc', 'islandora', 'includes/utilities');
-  module_load_include('inc', 'islandora_basic_collection', 'includes/utilities');
+  $models_and_namespaces = _icg_get_available_models_namespaces_for_form($collection);
 
-
-  $step1['cm_select'] = array(
+  $step1['content_model'] = array(
     '#type' => 'select',
     '#title' => t('Destination content model'),
-    '#description' => t('Select a content model to ingest into.'),
-    '#options' => islandora_basic_collection_get_content_models_as_form_options(islandora_get_content_models()),
+    '#description' => t('Select an available content model to ingest into.'),
+    '#options' =>  $models_and_namespaces['models'],
   );
 
-
   $step1['namespace'] = array(
-    '#type' => 'textfield',
+    '#type' => 'select',
     '#title' => t('Destination namespace'),
-    // TODO: Get namespace, don't use whole PID of the collection
-    '#default_value' => $collection->id,
+    '#description' => t('Select an available destination namespace'),
+    '#options' => $models_and_namespaces['namespaces'],
+  );
+
+  $step1['csv_delimiter'] = array (
+    '#type' => 'textfield',
+    '#title' => t('Field Delimiter'),
+    '#description' => t('Enter the character that separates fields in your CSV file.'),
+    '#size' => 10,
+    '#default_value' => ',',
+  );
+
+  $step1['csv_file'] = array (
+    '#type' => 'file',
+    '#title' => t('Choose a file'),
+    '#size' => 22,
+  );
+
+  $step1['next'] = array(
+    '#type' => 'submit',
+    '#value' => t('Next'),
   );
 
   $form[] = $step1;
@@ -80,8 +119,6 @@ function icg_csv_import_get_form($collection) {
 
   return $form;
 }
-
-//islandora_get_content_models()
 
 /**
  * CSV Import Form Submit Callback
