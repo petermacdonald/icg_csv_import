@@ -17,7 +17,6 @@ function _icg_csv_import_get_available_models_namespaces_for_form(IslandoraFedor
   $default_namespace = drupal_substr($collection->id, 0, strpos($collection->id, ":"));
 
   $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
-  dpm($policy->getContentModels());
   $policy_content_models = $policy->getContentModels();
 
   $available_collection_models = array();
@@ -43,15 +42,14 @@ function _icg_csv_import_get_available_models_namespaces_for_form(IslandoraFedor
 }
 
 /**
- * @param array $islandora_solution_pack_pids
- * @return array
+ * @param array $islandora_cmodels
+ * @return array where id = form_name
  */
-function _icg_csv_import_get_cmodel_associations(Array $islandora_solution_pack_pids) {
+function _icg_csv_import_get_cmodel_associations(Array $islandora_cmodels) {
   module_load_include('inc', 'xml_form_builder', 'includes/associations');
 
-  $associations = xml_form_builder_get_associations(array(), $islandora_solution_pack_pids, array(), FALSE);
-  dpm($associations);
-  
+  $associations = xml_form_builder_get_associations(array(), $islandora_cmodels, array(), FALSE);
+
   $ret = array ();
   foreach ($associations as $association) {
     $ret[$association['id']] = $association['form_name'];

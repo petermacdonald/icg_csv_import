@@ -68,9 +68,12 @@ function icg_csv_import_get_form($collection) {
   $form = array();
   module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
+  // @TODO ajax for: content_model to namespace and xml_form (add/remove options from list)
+
   $models_and_namespaces = _icg_csv_import_get_available_models_namespaces_for_form($collection);
-  $solution_pack_pids = array_keys($models_and_namespaces['models']);
-  $xml_forms = _icg_csv_import_get_cmodel_associations($solution_pack_pids);
+  $islandora_cmodels = array_keys($models_and_namespaces['models']); // This feels wasteful since we have the c policy.
+  $xml_forms = _icg_csv_import_get_cmodel_associations($islandora_cmodels);
+
 
   $step1['content_model'] = array(
     '#type' => 'select',
@@ -90,7 +93,7 @@ function icg_csv_import_get_form($collection) {
     '#type' => 'select',
     '#title' => t('Destination Namespace'),
     '#description' => t('Select an available destination namespace'),
-    '#options' => $models_and_namespaces['namespaces'],
+    '#options' => $models_and_namespaces['namespaces'], // as namespace.
   );
 
   $step1['csv_delimiter'] = array (
