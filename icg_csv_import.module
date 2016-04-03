@@ -11,14 +11,6 @@ function icg_csv_import_menu() {
     'file' => 'includes/map_ingest_form.inc',
     'type' => MENU_LOCAL_TASK,
   );
-  $items['csv-import/test'] = array(
-    'title' => t('Test CSV Import'),
-    'page callback' => 'icg_csv_import_test',
-//    'access arguments' => array(2),
-//    'access callback' => 'icg_csv_access_callback',
-    'file' => 'tests/batch.inc',
-    'type' => MENU_LOCAL_TASK,
-  );
   return $items;
 }
 
