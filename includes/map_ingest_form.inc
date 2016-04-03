@@ -68,32 +68,34 @@ function icg_csv_import_get_form($collection) {
   $form = array();
   module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
-  $models_and_namespaces = _icg_get_available_models_namespaces_for_form($collection);
+  $models_and_namespaces = _icg_csv_import_get_available_models_namespaces_for_form($collection);
+  $solution_pack_pids = array_keys($models_and_namespaces['models']);
+  $xml_forms = _icg_csv_import_get_cmodel_associations($solution_pack_pids);
 
   $step1['content_model'] = array(
     '#type' => 'select',
-    '#title' => t('Destination content model'),
+    '#title' => t('Destination Content Model'),
     '#description' => t('Select an available content model to ingest into.'),
-    '#options' =>  $models_and_namespaces['models'],
+    '#options' =>  $models_and_namespaces['models'], // as 'cmodel pid' = 'cmodel name'
   );
 
   $step1['xml_form'] = array(
     '#type' => 'select',
     '#title' => t('Select XML form to use...'),
     '#description' => t('Lorem ipsum.'),
-    '#options' =>  array('placeholder','placeholder2'),
+    '#options' =>  $xml_forms, // as 'form id' = 'form name'
   );
 
   $step1['namespace'] = array(
     '#type' => 'select',
-    '#title' => t('Destination namespace'),
+    '#title' => t('Destination Namespace'),
     '#description' => t('Select an available destination namespace'),
     '#options' => $models_and_namespaces['namespaces'],
   );
 
   $step1['csv_delimiter'] = array (
     '#type' => 'textfield',
-    '#title' => t('Field Delimiter'),
+    '#title' => t('CSV Field Delimiter'),
     '#description' => t('Enter the character that separates fields in your CSV file.'),
     '#size' => 10,
     '#required' => TRUE,
@@ -109,8 +111,8 @@ function icg_csv_import_get_form($collection) {
   $step1['csv_file'] = array (
     '#name' => 'files[csv_file]',
     '#type' => 'file',
-    '#title' => t('Choose a file'),
-    '#description' => t('Select your CSV file. Allowed file types are .csv and .txt'),
+    '#title' => t('Select your CSV File.'),
+    '#description' => t('Allowed file types are .csv and .txt'),
     '#size' => 22,
     '#default_value' => TRUE, // Ayyyyy, don't worry about it!
   );

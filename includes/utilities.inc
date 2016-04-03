@@ -10,13 +10,14 @@
  * @param IslandoraFedoraObject $collection
  * @return array for display on form
  */
-function _icg_get_available_models_namespaces_for_form(IslandoraFedoraObject $collection) {
+function _icg_csv_import_get_available_models_namespaces_for_form(IslandoraFedoraObject $collection) {
   module_load_include('inc', 'islandora', 'includes/utilities');
 //  module_load_include('inc', 'islandora_basic_collection', 'includes/utilities');
   $all_content_models = islandora_get_content_models();
   $default_namespace = drupal_substr($collection->id, 0, strpos($collection->id, ":"));
 
   $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
+  dpm($policy->getContentModels());
   $policy_content_models = $policy->getContentModels();
 
   $available_collection_models = array();
@@ -37,6 +38,24 @@ function _icg_get_available_models_namespaces_for_form(IslandoraFedoraObject $co
     'models' => $available_collection_models,
     'namespaces' => $available_namespaces,
   );
+
+  return $ret;
+}
+
+/**
+ * @param array $islandora_solution_pack_pids
+ * @return array
+ */
+function _icg_csv_import_get_cmodel_associations(Array $islandora_solution_pack_pids) {
+  module_load_include('inc', 'xml_form_builder', 'includes/associations');
+
+  $associations = xml_form_builder_get_associations(array(), $islandora_solution_pack_pids, array(), FALSE);
+  dpm($associations);
+  
+  $ret = array ();
+  foreach ($associations as $association) {
+    $ret[$association['id']] = $association['form_name'];
+  }
 
   return $ret;
 }
