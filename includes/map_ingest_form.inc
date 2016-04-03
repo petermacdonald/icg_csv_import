@@ -1,45 +1,63 @@
 <?php
 
-
 /**
  * CSV Import Form Callback
  */
 function icg_csv_import_form($form, &$form_state, $collection) {
-  dpm($form_state);
 
+  // If this is the first time the user hits the form page:
   if (!isset($form_state['values'])) {
     $form_state['step'] = 0;
     $form_state['all_values'] = array();
   }
 
-  // Build the form parts in 'steps'
+  // Build the form steps
   $form_content = icg_csv_import_get_form($collection);
 
-  // Grab the current 'step'
+  // Grab the current step
   $current_step = $form_state['step'];
 
-  //Return the current page for the step
+  // Return the current page for the step
   return $form_content[$current_step];
-
 }
 
 /**
  * CSV Import Form Submit
  */
 function icg_csv_import_form_submit($form, &$form_state) {
-   // Save our values
+   // Save our current values to all_values.
   $form_state['all_values'] += $form_state['values'];
 
+  // CSV file handler. I'm sure this could be done better.
+  if (isset($form_state['values']['csv_file'])) {
+
+    // File validation, upload and storage in temporary://.
+    $validators = array(
+      'file_validate_extensions' => array('csv txt'),
+      // @TODO set a file size limit?
+    );
+
+    $file = file_save_upload('csv_file', $validators, FALSE, FILE_EXISTS_REPLACE);
+    if ($file) {
+      $form_state['all_values']['csv_file'] = $file; // drupal file object
+    }
+    else{
+      form_set_error('csv_file', "A CSV file is required to continue.");
+    }
+  }
+
+  // Form multi-part handler
   if ($form_state['step'] < 2) {
     // Do not submit the form
     $form_state['rebuild'] = TRUE;
     // Instead go to the next page.
     $form_state['step']++;
-  } else {
-    dpm($form_state);
-    // do something with all_values...
   }
-  
+  else {
+    dpm($form_state);
+    // do something with $form_state[all_values] (drupal batch?) redirect away from form.
+  }
+
 }
 
 /**
@@ -59,6 +77,13 @@ function icg_csv_import_get_form($collection) {
     '#options' =>  $models_and_namespaces['models'],
   );
 
+  $step1['xml_form'] = array(
+    '#type' => 'select',
+    '#title' => t('Select XML form to use...'),
+    '#description' => t('Lorem ipsum.'),
+    '#options' =>  array('placeholder','placeholder2'),
+  );
+
   $step1['namespace'] = array(
     '#type' => 'select',
     '#title' => t('Destination namespace'),
@@ -71,16 +96,26 @@ function icg_csv_import_get_form($collection) {
     '#title' => t('Field Delimiter'),
     '#description' => t('Enter the character that separates fields in your CSV file.'),
     '#size' => 10,
+    '#required' => TRUE,
     '#default_value' => ',',
   );
 
-  $step1['csv_file'] = array (
-    '#type' => 'file',
-    '#title' => t('Choose a file'),
-    '#size' => 22,
+  $step1['ingest_as_inactive'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Ingest items as inactive?'),
+    '#default_value' => TRUE,
   );
 
-  $step1['next'] = array(
+  $step1['csv_file'] = array (
+    '#name' => 'files[csv_file]',
+    '#type' => 'file',
+    '#title' => t('Choose a file'),
+    '#description' => t('Select your CSV file. Allowed file types are .csv and .txt'),
+    '#size' => 22,
+    '#default_value' => TRUE, // Ayyyyy, don't worry about it!
+  );
+
+  $step1['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Next'),
   );
@@ -119,7 +154,3 @@ function icg_csv_import_get_form($collection) {
 
   return $form;
 }
-
-/**
- * CSV Import Form Submit Callback
- */
