@@ -2,6 +2,10 @@
 
 /**
  * CSV Import Form Callback
+ * @param $form
+ * @param $form_state
+ * @param $collection
+ * @return mixed
  */
 function icg_csv_import_form($form, &$form_state, $collection) {
 
@@ -12,7 +16,7 @@ function icg_csv_import_form($form, &$form_state, $collection) {
   }
 
   // Build the form steps
-  $form_content = icg_csv_import_get_form($collection);
+  $form_content = icg_csv_import_get_form($collection, $form_state);
 
   // Grab the current step
   $current_step = $form_state['step'];
@@ -22,7 +26,9 @@ function icg_csv_import_form($form, &$form_state, $collection) {
 }
 
 /**
- * CSV Import Form Submit
+ * Implements hook_form_submit
+ * @param $form
+ * @param $form_state
  */
 function icg_csv_import_form_submit($form, &$form_state) {
    // Save our current values to all_values.
@@ -61,39 +67,58 @@ function icg_csv_import_form_submit($form, &$form_state) {
 }
 
 /**
- * @param $collection
+ * @param $form
+ * @param $form_state
  * @return array
  */
-function icg_csv_import_get_form($collection) {
-  $form = array();
+function icg_csv_import_form_ajax_callback($form, &$form_state) {
+  $commands = array();
+  $commands[] = ajax_command_replace('#xml-dropdown-update', drupal_render($form['xml_form']));
+  $commands[] = ajax_command_replace('#namespace-dropdown-update', drupal_render($form['namespace']));
+  return array('#type' => 'ajax', '#commands' => $commands);
+}
+
+/**
+ * @param $collection
+ * @param $form_state
+ * @return array
+ */
+function icg_csv_import_get_form($collection, &$form_state) {
   module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
-  // @TODO ajax for: content_model to namespace and xml_form (add/remove options from list)
+  $form = array();
 
-  $models_and_namespaces = _icg_csv_import_get_available_models_namespaces_for_form($collection);
-  $islandora_cmodels = array_keys($models_and_namespaces['models']); // This feels wasteful since we have the c policy.
-  $xml_forms = _icg_csv_import_get_cmodel_associations($islandora_cmodels);
-
+  $content_models = _icg_csv_import_get_available_models($collection);
+  $selected_cmodel = isset($form_state['values']['content_model']) ? $form_state['values']['content_model'] : key($content_models);
 
   $step1['content_model'] = array(
     '#type' => 'select',
     '#title' => t('Destination Content Model'),
     '#description' => t('Select an available content model to ingest into.'),
-    '#options' =>  $models_and_namespaces['models'], // as 'cmodel pid' = 'cmodel name'
+    '#options' =>  $content_models, // as 'cmodel pid' = 'cmodel name'
+    '#default_value' => $selected_cmodel,
+    '#ajax' => array (
+      'callback' => 'icg_csv_import_form_ajax_callback',
+    ),
   );
 
   $step1['xml_form'] = array(
     '#type' => 'select',
     '#title' => t('Select XML form to use...'),
+    '#prefix' => '<div id="xml-dropdown-update">',
+    '#suffix' => '</div>',
     '#description' => t('Lorem ipsum.'),
-    '#options' =>  $xml_forms, // as 'form id' = 'form name'
+    // options as 'form name' = 'form name' (because this is how we need to grab them from the xml db func)
+    '#options' => _icg_csv_import_get_cmodel_associations(array($selected_cmodel)),
   );
 
   $step1['namespace'] = array(
     '#type' => 'select',
     '#title' => t('Destination Namespace'),
+    '#prefix' => '<div id="namespace-dropdown-update">',
+    '#suffix' => '</div>',
     '#description' => t('Select an available destination namespace'),
-    '#options' => $models_and_namespaces['namespaces'], // as namespace.
+    '#options' => _icg_csv_import_get_available_namespaces($collection, $selected_cmodel),
   );
 
   $step1['csv_delimiter'] = array (

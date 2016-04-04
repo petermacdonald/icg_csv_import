@@ -5,22 +5,18 @@
  */
 
 /**
- * _icg_get_available_models_namespaces_for_form
- * Loads collection policy and builds arrays of available cModels and Namespaces.
  * @param IslandoraFedoraObject $collection
- * @return array for display on form
+ * @return array
  */
-function _icg_csv_import_get_available_models_namespaces_for_form(IslandoraFedoraObject $collection) {
+function _icg_csv_import_get_available_models(IslandoraFedoraObject $collection) {
   module_load_include('inc', 'islandora', 'includes/utilities');
-//  module_load_include('inc', 'islandora_basic_collection', 'includes/utilities');
   $all_content_models = islandora_get_content_models();
-  $default_namespace = drupal_substr($collection->id, 0, strpos($collection->id, ":"));
 
   $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
   $policy_content_models = $policy->getContentModels();
 
-  $available_collection_models = array();
-  $available_namespaces = array();
+  $ret = array();
+
   foreach ($all_content_models as $pid => $content_model) {
 
     // Skip unused/unavailable cModels.
@@ -28,18 +24,35 @@ function _icg_csv_import_get_available_models_namespaces_for_form(IslandoraFedor
       continue;
     }
 
-    $namespace = $content_model_in_policy ? $policy_content_models[$pid]['namespace'] : $default_namespace;
-    $available_collection_models[$pid] = $content_model['label'];
-    $available_namespaces[$namespace] = $namespace; // Overwrite existing namespaces.
-  }
+    $ret[$pid] = $content_model['label'];
 
-  $ret = array (
-    'models' => $available_collection_models,
-    'namespaces' => $available_namespaces,
-  );
+//    $namespace = $policy_content_models[$pid]['namespace'];
+//
+//    $ret[$pid] = array (
+//      $pid => $content_model['label'], // cmodel pid => human readable label
+//      $namespace => $namespace, // namespace => namespace... (#unecessary comment)
+//    );
+  }
 
   return $ret;
 }
+
+
+function _icg_csv_import_get_available_namespaces(IslandoraFedoraObject $collection, $pid) {
+  module_load_include('inc', 'islandora', 'includes/utilities');
+
+  $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
+  $policy_content_models = $policy->getContentModels();
+
+  $namespace = $policy_content_models[$pid]['namespace']; // CAN THERE BE MORE THAN ONE?
+
+  $ret = array();
+  $ret[$namespace] = $namespace;
+
+  return $ret;
+}
+
+
 
 /**
  * @param array $islandora_cmodels
@@ -52,8 +65,41 @@ function _icg_csv_import_get_cmodel_associations(Array $islandora_cmodels) {
 
   $ret = array ();
   foreach ($associations as $association) {
-    $ret[$association['id']] = $association['form_name'];
+    $form_name = $association['form_name'];
+    $ret[$form_name] = $form_name;
   }
 
   return $ret;
 }
+
+// @DEPRECATED or UNAPPRECIATED?? @TODO look at this more and figure out what you were trying to do...
+//function _icg_csv_import_get_form_part1(IslandoraFedoraObject $collection) {
+//  module_load_include('inc', 'islandora', 'includes/utilities');
+//  module_load_include('inc', 'xml_form_builder', 'includes/associations');
+//
+//  $all_content_models = islandora_get_content_models();
+//
+//  $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
+//  $policy_content_models = $policy->getContentModels();
+//
+//  $cmodel_names_forms = array();
+//
+//  foreach ($all_content_models as $pid => $content_model) {
+//
+//    // Skip unused/unavailable cModels.
+//    if (!($content_model_in_policy = isset($policy_content_models[$pid]))) {
+//      continue;
+//    }
+//
+//    // Gather XML form associations.
+//    $associations = xml_form_builder_get_associations(array(), array($pid), array(), FALSE);
+//
+//    $cmodel_names_forms[$pid] = array (
+//      'namespace' => $policy_content_models[$pid]['namespace'],
+//      'content_model_label' => $content_model['label'],
+//      'associated_forms' => $associations,
+//    );
+//  }
+//
+//  return $cmodel_names_forms;
+//}
