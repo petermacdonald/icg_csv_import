@@ -7,12 +7,18 @@
 /**
  * @param IslandoraFedoraObject $collection
  * @return array
+ * @throws Exception
  */
 function _icg_csv_import_get_available_models(IslandoraFedoraObject $collection) {
   module_load_include('inc', 'islandora', 'includes/utilities');
   $all_content_models = islandora_get_content_models();
 
-  $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
+
+  if (!($policy = $collection['COLLECTION_POLICY'])) {
+    throw new Exception('No collection policy was found for this collection. Please contact your site admin.');
+  }
+
+  $policy = new CollectionPolicy($policy->content);
   $policy_content_models = $policy->getContentModels();
 
   $ret = array();
@@ -25,13 +31,7 @@ function _icg_csv_import_get_available_models(IslandoraFedoraObject $collection)
     }
 
     $ret[$pid] = $content_model['label'];
-
-//    $namespace = $policy_content_models[$pid]['namespace'];
-//
-//    $ret[$pid] = array (
-//      $pid => $content_model['label'], // cmodel pid => human readable label
-//      $namespace => $namespace, // namespace => namespace... (#unecessary comment)
-//    );
+    
   }
 
   return $ret;

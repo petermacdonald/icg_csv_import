@@ -15,8 +15,14 @@ function icg_csv_import_form($form, &$form_state, $collection) {
     $form_state['all_values'] = array();
   }
 
+  form_set_error(NULL, 'THE BEES');
   // Build the form steps
-  $form_content = icg_csv_import_get_form($collection, $form_state);
+  try {
+    $form_content = icg_csv_import_get_form($collection, $form_state);
+  } catch (Exception $e) {
+    drupal_set_message(t($e->getMessage()), 'error');
+    return;
+  }
 
   // Grab the current step
   $current_step = $form_state['step'];
@@ -88,7 +94,8 @@ function icg_csv_import_get_form($collection, &$form_state) {
 
   $form = array();
 
-  $content_models = _icg_csv_import_get_available_models($collection);
+  $content_models = _icg_csv_import_get_available_models($collection); // This will throw an error if no CPOLICY.
+
   $selected_cmodel = isset($form_state['values']['content_model']) ? $form_state['values']['content_model'] : key($content_models);
 
   $step1['content_model'] = array(
