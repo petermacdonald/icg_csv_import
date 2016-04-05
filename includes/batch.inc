@@ -1,83 +1,22 @@
 <?php
 
 /**
- * icg_csv_import_batch_item
- * Generates one new object in the Islandora repository based on the Xpaths ($headers)
- * of the destination data fields and corresponding $row data.
+ * icg_csv_import_batch_item - Generate one new object in Islandora from CSV data.
  *
- * @param array() $headers - Xpaths of destination fields
+ * Generates one new object in the Islandora repository based on the XPaths ($headers)
+ * of the destination metadata fields and corresponding $row data.
+ *
+ * @param array() $headers - XPaths of destination fields
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
- * @param ??? $xml_form_id - @TODO...TBD. Presumably the form ID that the datastream's XML schema can be derived from
- * @param IslandoraFedoraObject $parent_object  - The collection object that the new object will belong to
+ * @param string $parent_pid  - The collection object, presumably, that the new object will belong to
  * @param string $namespace - The namespace, no trailing colon, that the new object will be defined in
  * @param bool $inactive - Indicates if the new object is to be active (default) of inactive
  * @return string|bool - The PID of the ingested object, or FALSE in case of an error
  */
-function icg_csv_import_batch_item($headers, $row, $xml_form_id, $parent_object, $namespace, $inactive=FALSE) {
-  static $XPToXML = '/includes/XPathsToXML.xsl';
+function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace=NULL, $inactive=FALSE) {
   static $MODS = '/templates/MODS.xml';
   
   $path = drupal_get_path('module','icg_csv_import');
- 
-  // Fetch the XPathsToXML.xsl XSL template
-  if (!$xp = file_get_contents($path.$XPToXML)) {
-    drupal_set_message("Could not open '$XPToXML'.", 'error');
-    return FALSE;
-  } 
-
-  // Load the XSL template as XML
-  $xsl = new DOMDocument( );
-  if (!$xsl->loadXML($xp)) {
-    drupal_set_message("Could not load '$xp' as a DOMDocument.", 'error');
-    return FALSE;
-  }
-
-  /* OK, now $xsl is a DOMDocument 
-  // Save this DOMDocument as a temp file for debugging
-  $temp = drupal_tempnam('temporary://', 'XSL_');
-  $text = $xsl->saveXML();
-  if (!file_put_contents($temp, $text)) {
-    drupal_set_message("Could not save XSL as a temporary text file.", 'error');
-    return FALSE;
-  } else {
-    drupal_set_message("Complete XSL transform saved as '$temp'.", 'status');
-  } */
-
-  // Find <variable>, the parent of all <item> nodes
-  $dx = new DOMXPath($xsl);
-  $nodes = $dx->query("/xsl:stylesheet/xsl:variable[@name='vPop']");
-  if ($nodes->length < 1) {
-    drupal_set_message("No <variable> element found in the XSL template.", 'errror');
-    return FALSE;
-  }
-  
-  $variable = $nodes->item(0);                      // the first (and only!) 'variable' element
-
-  // Loop $i through $headers and $row.  Append each $header (xpath) and $row (data) as
-  // an 'item' onto $top.  An example 'item': <item path="/mods/name[1]/role/roleTerm[@type='text']">creator</item>
-  $length = min(count($headers), count($row));
-  for ($i=0; $i<$length; $i++) {
-    $item = $xsl->createElement('item',$row[$i]);   // DOMElement
-    $path = $xsl->createAttribute('path');          // DOMAttribute
-    $path->value = $headers[$i];                    // the path (attribute value)
-    $item->appendChild($path);                      // apply the path attribute to the item
-    $variable->appendChild($item);                  // append the new item to the parent $variable element
-  }
-
-  // OK, now $xsl is a DOMDocument containing our complete transform
-  // Save this DOMDocument as a temp file for debugging
-  $temp = drupal_tempnam('temporary://', 'XPathsToXML_');
-  $text = $xsl->saveXML();
-  if (!file_put_contents($temp, $text)) {
-    drupal_set_message("Could not save XSL as a temporary text file.", 'error');
-    return FALSE;
-  } else {
-    drupal_set_message("Complete XSL transform saved as '$temp'.", 'status');
-  }
-
-  // Prep to transform using the new XSL
-  $xslt = new XSLTProcessor( );
-  $xslt->importStyleSheet($xsl);
 
   // Fetch the MODS template
   if (!$template = file_get_contents($path.$MODS)) {
@@ -85,55 +24,43 @@ function icg_csv_import_batch_item($headers, $row, $xml_form_id, $parent_object,
     return FALSE;
   }
 
-  // Load the template as XML
-  $xml = new DOMDocument( );
-  if (!$xml->load($template)) {
-    drupal_set_message("Could not load '$MODS' as XSL.", 'error'); 
+  // Use $MODS to create a new DOMDocument to hold the data.
+  $doc = new DOMDocument();
+  if (!$doc->loadXML($template)) {
+    drupal_set_message("Could not load '$MODS' content as XML.", 'error');
     return FALSE;
   }
-  
-  // Apply $xslt to the MODS content
-  $document = DOMDocument::loadXml($template);
-  if ($doc = $xslt->transformToDoc($document)) {
-    $xmlString = $doc->saveXML();
-    $new_xml = new DOMDocument( );
-    $new_xml->setContentFromString($xmlString);
+
+  // Loop $i through $headers and $row adding data elements to $doc along the way.
+  $length = min(count($headers), count($row));
+  for ($i=0, $parent=NULL; $i<$length; $i++) {
+    $parent = GenerateNodeFromXPath($doc,$parent,$headers[$i],$row[$i]);
   }
 
-  return $xmlString;
-}
-
-/* http://php.net/manual/en/function.explode.php */
-function multiexplode($delimiters, $string) {
-  $ready = str_replace($delimiters, $delimiters[0], $string);
-  $parts = explode($delimiters[0], $ready);
-  $stack = array( );
-  foreach($parts as $part) {
-    $p = trim($part," /[]");
-    if (strlen($p)>0) {
-      $stack[] = $p;
-    }
+  // Save $doc as a temporary file for debugging purposes.
+  $temp = drupal_tempnam('temporary://', 'XML_');
+  $mods = $doc->saveXML();
+  if (!file_put_contents($temp, $mods)) {
+    drupal_set_message("Could not save XML as a temporary text file.", 'error');
+    return FALSE;
+  } else {
+    drupal_set_message("Complete XML saved as '$temp'.", 'status');
   }
-  return $stack;
+
+  // Create a new object with $mods as it's MODS datastream and return the object's PID.
+  // @TODO...need a content_model and label here!
+  return icg_make_new_object($parent_pid, 'islandora:compoundCModel', 'Test', $mods);
 }
 
-function make_node($doc, $parent, $element, $attribute, $value=NULL) {
-  $node = $doc->createElement($element, $value);   // create a new $element $node
-  if ($attribute) {
-    $node->appendChild($attribute);     // attach $attribute to the new $node
-  }
-  $node = $parent->appendChild($node);  // attach the new $node to $parent and return it
-  return $node;
-}
-
-/* http://stackoverflow.com/questions/834303/startswith-and-endswith-functions-in-php */
-function startsWith($haystack, $needle) {
-  // search backwards starting from haystack length characters from the end
-  return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== false;
-}
-
-// My attempt to reproduce 
-// private XmlNode GenerateNodeFromXPath(XmlDocument doc, XmlNode parent, string xpath) in PHP...
+/**
+ * Generate a new XML node from an XPath specification.
+ *
+ * @param $doc
+ * @param $parent
+ * @param $xpath
+ * @param null $data
+ * @param string $previous
+ */
 function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' ) {
   static $ns = 'mods';   // @TODO...namespace $ns is assumed here
 
@@ -205,6 +132,105 @@ function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' 
 }
 
 
+/**
+ * Make a new Fedora object in the namespace of an existing parent object.
+ *
+ * @param $parent_pid - The PID of the new object's parent.  Presumably this is a collection object.
+ * @param string $content_model - The content model to be associated with the new object.
+ * @param string $label - The label (title?) to be applied to the Fedora object.
+ * @param string $mods - The MODS record content as a string.
+ * @return mixed - The PID of the new object, or FALSE if the process failed.
+ */
+function icg_make_new_object($parent_pid, $content_model, $label, $mods) {
+  $collection_object = islandora_object_load($parent_pid);
+  if ($collection_object) {
+    $repo = $collection_object->repository;
+  }
+  else {
+    drupal_set_message("Could not open parent object '$parent_pid'.", 'error');
+    return FALSE;
+  }
+  list($ns, $pidn) = explode(':', $parent_pid);
+  $object = $repo->constructObject($ns);         // construct a new object in the parent's namespace
+  $object->models = $content_model;              // associate it with $content_model
+  $object->label = $label;                       // use the label provided
+
+  // Make a new MODS datastream for $new_object from $doc.
+  $dsid = 'MODS';
+  $datastream = $object->constructDatastream($dsid);
+  $datastream->label = 'MODS Record';
+  $datastream->mimeType = 'text/xml';
+  $datastream->setContentFromString($mods);
+  $object->ingestDatastream($datastream);
+
+  // Ingest the new object into Fedora.
+  $pid = $object->id;
+  try {
+    $repo->ingestObject($object);
+  } catch (Exception $e) {
+    drupal_set_message('Caught Fedora exception: ' . $e->getMessage(), 'error');
+    return FALSE;
+  }
+
+  return $pid;
+}
+
+
+/**
+ * Explode a string using multiple delimiters.  This code modified from
+ * http://php.net/manual/en/function.explode.php
+ *
+ * @param $delimiters
+ * @param $string
+ * @return array
+ */
+function multiexplode($delimiters, $string) {
+  $ready = str_replace($delimiters, $delimiters[0], $string);
+  $parts = explode($delimiters[0], $ready);
+  $stack = array( );
+  foreach($parts as $part) {
+    $p = trim($part," /[]");
+    if (strlen($p)>0) {
+      $stack[] = $p;
+    }
+  }
+  return $stack;
+}
+
+/**
+ * Make a new XML node to represent $element with an optional $value.
+ *
+ * @param $doc
+ * @param $parent
+ * @param $element
+ * @param $attribute
+ * @param null $value
+ * @return mixed -
+ */
+function make_node($doc, $parent, $element, $attribute, $value=NULL) {
+  $node = $doc->createElement($element, $value);   // create a new $element $node
+  if ($attribute) {
+    $node->appendChild($attribute);     // attach $attribute to the new $node
+  }
+  $node = $parent->appendChild($node);  // attach the new $node to $parent and return it
+  return $node;
+}
+
+/**
+ * Determine if a string starts with a particular character.  This code lifted
+ * from http://stackoverflow.com/questions/834303/startswith-and-endswith-functions-in-php
+ *
+ * @param $haystack
+ * @param $needle
+ * @return bool
+ */
+function startsWith($haystack, $needle) {
+  // search backwards starting from haystack length characters from the end
+  return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== false;
+}
+
+
+
 function test() {
   if (!$xp = file_get_contents('/var/www/drupal/sites/all/modules/icg_csv_import/templates/MODS.xml')) {
     drupal_set_message("Could not open 'MODS.xml'.", 'error');
@@ -219,20 +245,24 @@ function test() {
     "/mods/identifier[@type='local']",
     "/mods/titleInfo[1]/title",
     "/mods/titleInfo[2][@type='alternative']/title",
+    "/mods/abstract",
     "/mods/name[1][@type='personal']/namePart[@type='given']",
     "/mods/name[2][@type='personal']/namePart[@type='family']",
     "/mods/originInfo/dateCreated" );
-  foreach( $xpaths as $xpath ) {
-    $parent = GenerateNodeFromXPath($xml,NULL,$xpath,$xpath);
-  }
-
-  $temp = drupal_tempnam('temporary://', 'XML_');
-  $text = $xml->saveXML();
-  if (!file_put_contents($temp, $text)) {
-    drupal_set_message("Could not save XML as a temporary text file.", 'error');
-    return;
+  
+  $data = array( 
+    "1794 1",
+    "A View of Religions in Two Parts",
+    "",
+    "A view of religions, in two parts. : Part I. Containing an alphabetical compendium of the various religious denominations, which have appeared in the world, from the beginning of the Christian era to the present day. Part II. Containing a brief account of the different schemes of religion now embraced among mankind. The whole collected from the best authors, ancient and modern",
+    "Hannah",
+    "Adams",
+    "1791");
+  
+  if ($pid = icg_csv_import_batch_item($xpaths,$data,'icg-collection:1')) {
+    drupal_set_message("Yes!  New object '$pid' has been generated!", 'status');
   } else {
-    drupal_set_message("Complete XML saved as '$temp'.", 'status');
+    drupal_set_message("Drats!  The process failed to create a new object.", 'error');
   }
 
 }
