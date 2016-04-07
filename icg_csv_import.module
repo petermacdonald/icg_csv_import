@@ -1,7 +1,7 @@
 <?php
 
 function icg_csv_import_init( ) {
-  module_load_include('inc', 'icg_csv_import', 'batch');
+  module_load_include('inc', 'icg_csv_import', 'icg_csv_import_batch');
 }
 
 function icg_csv_import_menu() {

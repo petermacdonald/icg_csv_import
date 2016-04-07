@@ -46,7 +46,8 @@ class CSVImportBatchTestCase extends DrupalWebTestCase {
     $headers = array(
       "/mods/identifier[@type='local']",
       "/mods/titleInfo/title",
-      "/mods/name[@type='personal']/namePart",
+      "/mods/name[1][@type='personal']/namePart",
+      "/mods/name[2][@type='personal']/namePart",
       "/mods/originInfo/dateCreated"
     );
 
@@ -63,6 +64,7 @@ class CSVImportBatchTestCase extends DrupalWebTestCase {
     $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
     // same thing here with author field: "Benjamin" and "Fawcett"
+    
     $row = array(
       "1794 2",
       "The saint's everlasting rest, or, A treatise of the blessed state of the saints in their enjoyment of God in heaven. Written by the reverend, learned, and pious Mr. Richard Baxter",
@@ -77,11 +79,18 @@ class CSVImportBatchTestCase extends DrupalWebTestCase {
       "1794 3",
       "Evidences of the Christian religion; briefly and plainly",
       "stated",
+      "",
       "1787"
     );
     $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
-    $row = array("1794 4", "Bible", "", "1801");
+    $row = array(
+      "1794 4", 
+      "Bible", 
+      "", 
+      "", 
+      "1801"
+    );
     $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
     return;
