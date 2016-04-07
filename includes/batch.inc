@@ -11,7 +11,7 @@
  * @param string $parent_pid  - The collection object, presumably, that the new object will belong to
  * @param string $namespace - The namespace, no trailing colon, that the new object will be defined in
  * @param bool $inactive - Indicates if the new object is to be active (default) or inactive
- * 
+ *
  * @return string|bool - The PID of the ingested object, or FALSE in case of an error
  */
 function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test', $inactive=FALSE) {
@@ -19,17 +19,15 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   static $history;
   static $MODS = '/templates/MODS.xml';
 
-  $marker = date('c');
+  $marker = date('Y-m-d:H:i:s');
   $path = drupal_get_path('module','icg_csv_import');
 
   // On the first call to this function, open a temporary .csv file and write the
   // $marker cell followed by $headers.
   if (empty($history)) {
-    if (!$temp = drupal_tempnam('temporary://', 'icg_csv_import_history_')) {
+    $history = 'temporary://icg_csv_import_history_'.$marker.'.csv';
+    if (!$temp = fopen($history,'w')) {
       drupal_set_message("Could not create temporary CSV history file.", 'error');
-      return FALSE;
-    } else if (!rename($temp, ($history = $temp . ".csv"))) {
-      drupal_set_message("Could not rename temporary CSV history file '$temp'.", 'error');
       return FALSE;
     }
     
