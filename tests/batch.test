@@ -8,24 +8,24 @@
 /**
 * Base class.
 */
-class CSVImportBatchTestCase extends IslandoraWebTestCase {
+class CSVImportBatchTestCase extends DrupalWebTestCase {
 
   protected $classVariable;
 
   /**
-  * Implements getInfo().
-  */
+   * Implements getInfo().
+   */
   public static function getInfo() {
     return array(
-      'name' => t('Batch'),
-      'desc' => t('Test functions in the batch.inc code.'),
-      'group' => t('ICG CSV Import'),
+      'name' => 'Batch',
+      'description' => 'Test functions in the batch.inc code.',
+      'group' => 'ICG CSV Import',
     );
   }
 
   /**
-  * Implements setUp().
-  */
+   * Implements setUp().
+   */
   public function setUp() {
     // Here, you can establish class variables before the actual setup phase.
     // After the setup is complete, the Drupal database will mimic a fresh
@@ -33,33 +33,58 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
     //   $this->classVariable = drupal_get_variable('some_variable', NULL);
     // Now, we run the parent setUp(), which takes an array of strings
     // representing modules to enable.
-    //   parent::setUp(array('icg_csv_import'));
+    parent::setUp(array('icg_csv_import'));
     // After here, if we'd like, we can use those class variables.
     //   drupal_set_variable('some_variable', $this->classVariable);
   }
 
   public function testBatch() {
-    $xml_form_id = NULL;
-    $parent_object = NULL;
-    $namespace = "test";
-    $headers = array( "/mods:mods/mods:identifier[@type='local']","/mods:mods/mods:titleInfo/mods:title","/mods:mods/mods:name[@type='personal']/mods:role/mods:roleTerm[@type='text' and text()='creator']/../../mods:namePart","/mods:mods/mods:originInfo/mods:dateCreated" );
+    
+    $parent = 'icg-collection:1';
+    $ns = 'test';
+
+    $headers = array(
+      "/mods/identifier[@type='local']",
+      "/mods/titleInfo/title",
+      "/mods/name[@type='personal']/namePart",
+      "/mods/originInfo/dateCreated"
+    );
 
     // There are supposed to be four fields in the CSV file ("Identifier","Title","Author","Date")
     // Some of the CSV rows have more than four fields (such as the first row, which has "Hannah" and "Adams" for the author)
 
-    $row = array( "1794 1","A view of religions, in two parts. : Part I. Containing an alphabetical compendium of the various religious denominations, which have appeared in the world, from the beginning of the Christian era to the present day. Part II. Containing a brief account of the different schemes of religion now embraced among mankind. The whole collected from the best authors, ancient and modern","Hannah","Adams","1791");
-    $pid = icg_csv_import_batch_item($headers, $row, $xml_form_id, $parent_object, $namespace);
+    $row = array(
+      "1794 1",
+      "A view of religions, in two parts. : Part I. Containing an alphabetical compendium of the various religious denominations, which have appeared in the world, from the beginning of the Christian era to the present day. Part II. Containing a brief account of the different schemes of religion now embraced among mankind. The whole collected from the best authors, ancient and modern",
+      "Hannah",
+      "Adams",
+      "1791"
+    );
+    $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
     // same thing here with author field: "Benjamin" and "Fawcett"
-    $row = array( "1794 2","The saint's everlasting rest, or, A treatise of the blessed state of the saints in their enjoyment of God in heaven. Written by the reverend, learned, and pious Mr. Richard Baxter","Benjamin","Fawcett","1793");
-    $pid = icg_csv_import_batch_item($headers, $row, $xml_form_id, $parent_object, $namespace);
+    $row = array(
+      "1794 2",
+      "The saint's everlasting rest, or, A treatise of the blessed state of the saints in their enjoyment of God in heaven. Written by the reverend, learned, and pious Mr. Richard Baxter",
+      "Benjamin",
+      "Fawcett",
+      "1793"
+    );
+    $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
     // this row seems corrupt; there is no author but the author field seems to contain info from the title field
-    $row = array( "1794 3","Evidences of the Christian religion; briefly and plainly","stated","1787");
-    $pid = icg_csv_import_batch_item($headers, $row, $xml_form_id, $parent_object, $namespace);
+    $row = array(
+      "1794 3",
+      "Evidences of the Christian religion; briefly and plainly",
+      "stated",
+      "1787"
+    );
+    $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
-    $row = array( "1794 4","Bible","","1801");
-    $pid = icg_csv_import_batch_item($headers, $row, $xml_form_id, $parent_object, $namespace);
+    $row = array("1794 4", "Bible", "", "1801");
+    $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
+
+    return;
+
   }
-
 }

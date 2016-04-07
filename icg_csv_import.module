@@ -1,5 +1,9 @@
 <?php
 
+function icg_csv_import_init( ) {
+  module_load_include('inc', 'icg_csv_import', 'batch');
+}
+
 function icg_csv_import_menu() {
   $items = array();
   $items['islandora/object/%islandora_object/manage/csv-import'] = array(

@@ -3,4 +3,7 @@ description = Islandora Consortial Group CSV Importer
 package = ICG Modules
 core = 7.x
 testing_api = 2.x
+files[] = includes/batch.inc
+files[] = includes/csv.inc
+files[] = includes/map_ingest_form.inc
 files[] = tests/batch.test
