@@ -22,17 +22,19 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   $marker = date('Y-m-d:H:i:s');
   $path = drupal_get_path('module','icg_csv_import');
 
+  $module_name = basename(__FILE__, '.module');
+
   // On the first call to this function, open a temporary .csv file and write the
   // $marker cell followed by $headers.
   if (empty($history)) {
-    $history = 'temporary://icg_csv_import_history_'.$marker.'.csv';
+    $history = 'public://history_'.$marker.'.csv';
     if (!$temp = fopen($history,'w')) {
-      drupal_set_message("Could not create temporary CSV history file.", 'error');
+      watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
     }
     
     if (!$fp = fopen($history, 'w')) {
-      drupal_set_message("Could not open temporary CSV history file '$history'.", 'error');
+      watchdog($module_name, "Could not open CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
     } 
     
@@ -45,14 +47,14 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
 
   // Fetch the MODS template
   if (!$template = file_get_contents($path.$MODS)) {
-    drupal_set_message("Could not open '$MODS'.", 'error');
+    watchdog($module_name, "Could not open '%mods'.", array('%mods' => $MODS), WATCHDOG_ERROR);
     return FALSE;
   }
 
   // Use $MODS to create a new DOMDocument to hold the data.
   $doc = new DOMDocument();
   if (!$doc->loadXML($template)) {
-    drupal_set_message("Could not load '$MODS' content as XML.", 'error');
+    watchdog($module_name, "Could not load '%mods' content as XML.", array('%mods' => $MODS), WATCHDOG_ERROR);
     return FALSE;
   }
 
@@ -76,8 +78,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   $temp = drupal_tempnam('temporary://', 'XML_');
   $mods = $doc->saveXML();
   if (!file_put_contents($temp, $mods)) {
-    drupal_set_message("Could not save XML as a temporary text file.", 'error');
-    return FALSE;
+    watchdog($module_name, "Could not save XML as a temporary text file.", array( ) , WATCHDOG_WARNING);
   } else {
     drupal_set_message("Complete XML saved as '$temp'.", 'status');
   }
@@ -191,13 +192,15 @@ function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' 
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
 function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL) {
+  $module_name = basename(__FILE__, '.module');
+
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
   $collection_object = islandora_object_load($parent_pid);
   if ($collection_object) {
     $repo = $collection_object->repository;
   }
   else {
-    drupal_set_message("Could not open parent object '$parent_pid'.", 'error');
+    watchdog($module_name, "Could not open parent object '%parent'.", array('%parent' => $parent_pid), WATCHDOG_ERROR);
     return FALSE;
   }
   $object = $repo->constructObject($ns);    // construct a new object in the specified namespace
@@ -232,7 +235,7 @@ function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL
   try {
     $repo->ingestObject($object);
   } catch (Exception $e) {
-    drupal_set_message('Caught Fedora exception: ' . $e->getMessage(), 'error');
+    watchdog($module_name, "Caught Fedora exception: %e.", array('%e' => $e->getMessage()), WATCHDOG_ERROR);
     return FALSE;
   }
 
@@ -345,31 +348,33 @@ function fetch_OBJ($filename) {
   static $ftp_username = 'user';
   static $ftp_userpass = 'password';
 
+  $module_name = basename(__FILE__, '.module');
+
   // Set up a basic connection.
   $conn_id = ftp_ssl_connect($ftp_server, 21, 180);
   if (!$conn_id) {
-    drupal_set_message("FTP connection failed!", 'error');
+    watchdog($module_name, "FTP connection failed!", array( ), WATCHDOG_ERROR);
     return FALSE;
   }
 
   // Login with the specified FTP username and password.
   $login_result = ftp_login($conn_id, $ftp_username, $ftp_userpass);
   if (!$login_result) {
-    drupal_set_message("FTP login failed!", 'error');
+    watchdog($module_name, "FTP login failed!", array( ), WATCHDOG_ERROR);
     return FALSE;
   }
 
   // Attempt to change the remote directory as specified.
   $change_dir = ftp_chdir($conn_id, $ftp_directory);
   if (!$change_dir) {
-    drupal_set_message("FTP chdir to '$ftp_directory' failed!", 'error');
+    watchdog($module_name, "FTP chdir to '%directory' failed!", array('%directory' => $ftp_directory), WATCHDOG_ERROR);
     return FALSE;
   }
 
   // Fetch a file via FTP.
   $temp_file = drupal_tempnam('temporary://', 'import_content_');   // open a temp file
   if (!ftp_get($conn_id, $temp_file, $filename, FTP_BINARY)) {
-    drupal_set_message("Could not download file '$filename' via FTP.", 'error');
+    watchdog($module_name, "Could not download file '%filename' via FTP.", array('%filename' => $filename), WATCHDOG_ERROR);
     return FALSE;
   }
   
