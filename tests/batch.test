@@ -8,7 +8,7 @@
 /**
 * Base class.
 */
-class CSVImportBatchTestCase extends DrupalWebTestCase {
+class CSVImportBatchTestCase extends IslandoraWebTestCase {
 
   protected $classVariable;
 
