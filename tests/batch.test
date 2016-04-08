@@ -31,14 +31,17 @@ class CSVImportBatchTestCase extends DrupalWebTestCase {
     // After the setup is complete, the Drupal database will mimic a fresh
     // install, so this is the time to grab anything you need.
     //   $this->classVariable = drupal_get_variable('some_variable', NULL);
+
     // Now, we run the parent setUp(), which takes an array of strings
     // representing modules to enable.
     parent::setUp(array('icg_csv_import'));
+
     // After here, if we'd like, we can use those class variables.
     //   drupal_set_variable('some_variable', $this->classVariable);
   }
 
   public function testBatch() {
+    require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/batch.inc');
     
     $parent = 'icg-collection:1';
     $ns = 'test';
@@ -75,6 +78,7 @@ class CSVImportBatchTestCase extends DrupalWebTestCase {
     $pid = icg_csv_import_batch_item($headers, $row, $parent, $ns);
 
     // this row seems corrupt; there is no author but the author field seems to contain info from the title field
+    
     $row = array(
       "1794 3",
       "Evidences of the Christian religion; briefly and plainly",
