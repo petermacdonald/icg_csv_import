@@ -17,7 +17,7 @@ class CSVImportBatchTestCase extends DrupalWebTestCase {
    */
   public static function getInfo() {
     return array(
-      'name' => 'Batch',
+      'name' => 'Batch Test',
       'description' => 'Test functions in the batch.inc code.',
       'group' => 'ICG CSV Import',
     );
