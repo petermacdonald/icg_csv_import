@@ -38,7 +38,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
       return FALSE;
     } 
     
-    drupal_set_message("Successfully opened file '$history' to capture CSV import status.", 'status');
+    debug("Successfully opened file '$history' to capture CSV import status.");
     $record = $headers;
     array_unshift($record, $marker);
     fputcsv($fp, $record);
@@ -80,7 +80,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   if (!file_put_contents($temp, $mods)) {
     watchdog($module_name, "Could not save XML as a temporary text file.", array( ) , WATCHDOG_WARNING);
   } else {
-    drupal_set_message("Complete XML saved as '$temp'.", 'status');
+    debug("Complete XML saved as '$temp'.");
   }
 
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
