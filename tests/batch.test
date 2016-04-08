@@ -42,6 +42,7 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
 
   public function testBatch() {
     require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/batch.inc');
+    require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/test.inc');
     
     debug("This is ../icg_csv_import/tests/testBatch.");
     
@@ -106,6 +107,13 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
       }
     }
 
+    
+    if (icg_csv_import_test()) {
+      $this->pass("Yes! Call to icg_csv_import_test() passed.");
+    } else {
+      $this->fail("Drats!  Call to icg_csv_import_test() failed.");
+    }
+    
     return;
 
   }
