@@ -5,10 +5,90 @@
 * batch.test
 */
 
-/**
-* Base class.
-*/
-class CSVImportBatchTestCase extends IslandoraWebTestCase {
+class CSVImportBatchTestCase0 extends IslandoraWebTestCase {
+
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Import Collection Objects',
+      'description' => 'Imports new collection objects from /tmp/shared/CSVTesting-CollectionObjects.csv.',
+      'group' => 'ICG CSV Import',
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  public function setUp() {
+    parent::setUp(array('icg_csv_import'));
+  }
+
+
+  public function testCollectionImport() {
+    require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/batch.inc');
+
+    debug("This is ../icg_csv_import/tests/testCollectionImport().");
+
+    $parent = 'islandora:root';
+    $ns = 'icg-collection';
+
+    if (readCSV("/tmp/shared/CSVTesting-CollectionObjects.csv", $parent, $ns)) {
+      $this->pass("Yes! Call to readCSV() passed.");
+    } else {
+      $this->fail("Drats!  Call to readCSV() failed.");
+    }
+
+    return;
+
+  }
+}
+
+
+class CSVImportBatchTestCase2 extends IslandoraWebTestCase {
+
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Import One Dozen Objects from CSV',
+      'description' => 'Imports a dozen new objects from /tmp/shared/CSVSample-HistoricIowaPostcards-OneDozen.csv.',
+      'group' => 'ICG CSV Import',
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  public function setUp() {
+    parent::setUp(array('icg_csv_import'));
+  }
+
+
+  public function testDozenImport() {
+    require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/batch.inc');
+
+    debug("This is ../icg_csv_import/tests/testDozenImport().");
+
+    $parent = 'icg-collection:1';
+    $ns = 'test';
+
+    if (readCSV("/tmp/shared/CSVSample-HistoricIowaPostcards-OneDozen.csv", $parent, $ns)) {
+      $this->pass("Yes! Call to readCSV() passed.");
+    } else {
+      $this->fail("Drats!  Call to readCSV() failed.");
+    }
+
+    return;
+
+  }
+}
+
+
+
+class CSVImportBatchTestCase1 extends IslandoraWebTestCase {
 
   protected $classVariable;
 
@@ -17,8 +97,8 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
    */
   public static function getInfo() {
     return array(
-      'name' => 'Batch Test',
-      'description' => 'Test functions in the batch.inc code.',
+      'name' => 'Import Data from Arrays',
+      'description' => 'Test functions in the batch.inc code using simple import of array data.',
       'group' => 'ICG CSV Import',
     );
   }
@@ -40,12 +120,13 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
     //   drupal_set_variable('some_variable', $this->classVariable);
   }
 
-  public function testBatch() {
+
+  public function testFromArrays() {
     require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/batch.inc');
-    require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/test.inc');
-    
+    // require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/test.inc');
+
     debug("This is ../icg_csv_import/tests/testBatch.");
-    
+
     $parent = 'icg-collection:1';
     $ns = 'test';
 
@@ -57,8 +138,8 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
       "/mods/originInfo/dateCreated"
     );
 
-    $rows = array( );
-    
+    $rows = array();
+
     // There are supposed to be four fields in the CSV file ("Identifier","Title","Author","Date")
     // Some of the CSV rows have more than four fields (such as the first row, which has "Hannah" and "Adams" for the author)
 
@@ -71,7 +152,7 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
     );
 
     // same thing here with author field: "Benjamin" and "Fawcett"
-    
+
     $rows[] = array(
       "1794 2",
       "The saint's everlasting rest, or, A treatise of the blessed state of the saints in their enjoyment of God in heaven. Written by the reverend, learned, and pious Mr. Richard Baxter",
@@ -81,7 +162,7 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
     );
 
     // this row seems corrupt; there is no author but the author field seems to contain info from the title field
-    
+
     $rows[] = array(
       "1794 3",
       "Evidences of the Christian religion; briefly and plainly",
@@ -91,10 +172,10 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
     );
 
     $rows[] = array(
-      "1794 4", 
-      "Bible", 
-      "", 
-      "", 
+      "1794 4",
+      "Bible",
+      "",
+      "",
       "1801"
     );
 
@@ -102,19 +183,23 @@ class CSVImportBatchTestCase extends IslandoraWebTestCase {
       debug("Calling icg_csv_import_batch_item( ) for a new row of data.");
       if ($pid = icg_csv_import_batch_item($headers, $row, $parent, $ns)) {
         $this->pass("Yes! New object '$pid' has been created from CSV data.");
-      } else {
+      }
+      else {
         $this->fail("Oops, object creation failed!");
       }
     }
 
-    
+
     if (icg_csv_import_test()) {
       $this->pass("Yes! Call to icg_csv_import_test() passed.");
-    } else {
+    }
+    else {
       $this->fail("Drats!  Call to icg_csv_import_test() failed.");
     }
-    
+
     return;
 
   }
 }
+
+

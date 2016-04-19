@@ -16,10 +16,13 @@
  */
 function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test', $inactive=FALSE) {
 
+  static $update;
   static $history;
   static $MODS = '/templates/MODS.xml';
+  static $labelXPath = '/mods/titleInfo/title';   // @TODO...make this a parameter!
 
-  $marker = date('Y-m-d:H:i:s');
+  $format = 'Y-m-d:H:i:s';
+  $marker = date($format);
   $path = drupal_get_path('module','icg_csv_import');
 
   $module_name = basename(__FILE__, '.module');
@@ -27,22 +30,45 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   // On the first call to this function, open a temporary .csv file and write the
   // $marker cell followed by $headers.
   if (empty($history)) {
-    $history = 'public://history_'.$marker.'.csv';
+    $history = 'temporary://CSV_import_history_'.$marker.'.csv';
     if (!$temp = fopen($history,'w')) {
       watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
     }
-    
+
     if (!$fp = fopen($history, 'w')) {
       watchdog($module_name, "Could not open CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
-    } 
-    
+    }
+
     debug("Successfully opened file '$history' to capture CSV import status.");
     $record = $headers;
-    array_unshift($record, $marker);
+
+    // Determine if a date/time marker is already present in the first $headers cell.  If yes,
+    // this process will update the first column, otherwise it will append a new column of data
+    // the the history.
+    if ($previous = strtotime($record[0])) {
+      $update = TRUE;
+      $record[0] = $marker;
+    } else {
+      $update = FALSE;
+      array_unshift($record, $marker);
+    }
+
     fputcsv($fp, $record);
     fclose($fp);
+  }
+
+  $record = $row;
+
+  // Check for a hashtag (comment) marker at the start of $row.  If found then echo
+  // $row into the history file but do nothing else.
+  if (startsWith($record[0],'#')) {
+    $fp = fopen($history,'a');    // open the history CSV file to append data
+    if (!$update) array_unshift($record, '#');
+    fputcsv($fp, $record);            // append $record as-is to the history
+    fclose($fp);
+    return TRUE;
   }
 
   // Fetch the MODS template
@@ -59,18 +85,28 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   }
 
   $length = min(count($headers), count($row));
-  $obj = $cmodel = NULL;
+  $obj = $cmodel = $label = NULL;
 
+
+  // Primary loop...where the rubber meets the road.
+  //
   // Loop $i through $headers and $row adding data elements to $doc along the way.
-  // Look for the optional "special" $headers 'OBJ' and 'CModel' which mark the
-  // columns of $row that contain the OBJ content filename and content model, respectively.
+  // Skip all comment (# as first character) rows and empty $headers or $row cells.
+  // Look for the optional "special" $headers 'LABEL, 'OBJ' and 'CModel' which mark the
+  // columns of $row that contain the object label, OBJ content filename, and
+  // content model, respectively.
+
   for ($i=0, $parent=NULL; $i<$length; $i++) {
-    if ($headers[$i] === "OBJ") {
-      $obj = $headers[$i];
-    } else if ($headers[$i] === "CModel") {
-      $cmodel = $headers[$i];
+    if (empty($headers[$i]) || startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
+    if (empty($row[$i])) { continue; }   // $row[$i] is empty...skip it
+    if ($headers[$i] === "LABEL" || $headers[$i] === $labelXPath) {
+      $label = $row[$i];
+    } else if ($headers[$i] === "OBJ") {
+      $obj = $row[$i];
+    } else if ($headers[$i] === "CMODEL") {
+      $cmodel = $row[$i];
     } else {
-      $parent = GenerateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
+      $parent = generateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
     }
   }
 
@@ -84,14 +120,25 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   }
 
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
-  // @TODO...need a content_model and label here!
-  if ($pid = icg_make_new_object($parent_pid, $namespace, $cmodel, 'Test', $mods, $obj)) {
-    $fp = fopen($history,'a');    // open the history CSV file to append data
-    $record = $row;
-    array_unshift($record, $pid);
-    fputcsv($fp,$record);         // append the $pid and data ($row)
-    fclose($fp);
+  if ($pid = icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $obj)) {
+    if ($update) {
+      $record[0] = $pid;
+    } else {
+      array_unshift($record, $pid);
+    }
+  } else {
+    if ($update) {
+      $record[0] = 'Import Failed';
+    }
+    else {
+      array_unshift($record, 'Import Failed');
+    }
   }
+
+  // Append this $row result to the history
+  $fp = fopen($history, 'a');    // open the history CSV file to append data
+  fputcsv($fp, $record);         // append the $pid and data ($row)
+  fclose($fp);
 
   return $pid;
 }
@@ -222,12 +269,14 @@ function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL
   // If $obj is specified, fetch the file contents and make a new OBJ datastream for
   // $object from it.  @TODO...Assumes image/jpeg!
   if ($obj) {
-    $dsid = 'OBJ';
-    $datastream = $object->constructDatastream($dsid);
-    $datastream->label = 'Object Content';
-    $datastream->mimeType = 'image/jpeg';
-    $datastream->setContentFromFile($obj, TRUE);
-    $object->ingestDatastream($datastream);
+    if ($temp = fetch_OBJ($obj)) {
+      $dsid = 'OBJ';
+      $datastream = $object->constructDatastream($dsid);
+      $datastream->label = 'Object Content';
+      $datastream->mimeType = 'image/jpeg';
+      $datastream->setContentFromFile($temp, TRUE);
+      $object->ingestDatastream($datastream);
+    }
   }
 
   // Ingest the new object into Fedora.
@@ -237,6 +286,21 @@ function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL
   } catch (Exception $e) {
     watchdog($module_name, "Caught Fedora exception: %e.", array('%e' => $e->getMessage()), WATCHDOG_ERROR);
     return FALSE;
+  }
+
+  // Now, get the MODS-to-DC transform.  @TODO...$transform needs to be parameter
+  $xsl = new DOMDocument( );
+  $transform = '/tmp/shared/mods_to_dc.xsl';
+  if (!$xsl->load($transform)) { die("Failed to load Transform file '$transform!'"); }
+  $xslt = new XSLTProcessor( );
+  $xslt->importStyleSheet($xsl);
+
+  // Apply the MODS-to-DC transform.
+  $document = new DOMDocument( );
+  $document->loadXml($object['MODS']->content);
+  if ($doc = $xslt->transformToDoc($document)) {
+    $after = $doc->saveXML();
+    $object['DC']->setContentFromString($after);
   }
 
   return $pid;
@@ -298,16 +362,16 @@ function startsWith($haystack, $needle) {
 
 /**
  * Fetch the named file from storage using FTP.
- * 
+ *
  * @TODO...This needs to be a hook so that others can replace it!
- * 
+ *
  * @param string $filename - File name to fetch via FTP.
  */
 function fetch_OBJ($filename) {
   static $ftp_server = '132.161.10.13';
-  static $ftp_directory = '\MEDIADB';
-  static $ftp_username = 'user';
-  static $ftp_userpass = 'password';
+  static $ftp_directory = 'MEDIADB/pdid/iowapostcards/full';
+  static $ftp_username = 'mcfatem';
+  static $ftp_userpass = '********';
 
   $module_name = basename(__FILE__, '.module');
 
@@ -329,7 +393,11 @@ function fetch_OBJ($filename) {
   $change_dir = ftp_chdir($conn_id, $ftp_directory);
   if (!$change_dir) {
     watchdog($module_name, "FTP chdir to '%directory' failed!", array('%directory' => $ftp_directory), WATCHDOG_ERROR);
+    die("ftp_chdir failed!");
     return FALSE;
+  } else {
+    $txt = "Current directory is: " . ftp_pwd($conn_id);
+    watchdog($module_name, $txt, array( ), WATCHDOG_INFO);
   }
 
   // Fetch a file via FTP.
@@ -338,7 +406,68 @@ function fetch_OBJ($filename) {
     watchdog($module_name, "Could not download file '%filename' via FTP.", array('%filename' => $filename), WATCHDOG_ERROR);
     return FALSE;
   }
-  
+
   return $temp_file;
 }
 
+/**
+ * David's readCSV() function.
+ *
+ * @param $csv_file
+ * @return bool
+ */
+function readCSV($csv_file, $parent, $ns) {
+  //$csv_file = "valid_example1";
+  ini_set("auto_detect_line_endings", true);
+  $csv_data = array();
+  $rowcount = 0;
+
+  //open csv file
+  if (($file_handle = fopen($csv_file, "r")) !== FALSE) {
+
+    //read first line to get header names and number of headers
+    $csv_headers = fgetcsv($file_handle);
+    $csv_headers_number = count($csv_headers);
+    $entry = array();
+
+    //check to see if number of row data matches number of headers
+    while (($row = fgetcsv($file_handle)) !== FALSE) {
+      $number_of_row_data = count($row);
+
+      //if numbers match, enter into arrays
+      if ($number_of_row_data == $csv_headers_number) {
+        $entry = $row;
+//      $csv_data[] = $entry;
+        $pid = icg_csv_import_batch_item($csv_headers, $entry, $parent, $ns, $inactive=FALSE);
+      }
+      //if numbers don't match
+      else {
+        echo("CSV Reader: Invalid number of columns at line " . ($rowcount + 2) . " (, row " . ($rowcount + 1) . ") in ".$csv_file.". Expected=$csv_headers_number; Got=$number_of_row_data");
+        return FALSE;
+      }
+      $rowcount++;
+    }
+    /*****************************************
+    //display data to check it (can be deleted)
+    echo "Total rows found: $rowcount\n";
+    for ($row = 0; $row < sizeof($csv_data); $row++) {
+    echo "<p><b>Row number $row</b></p>";
+    echo "<br>";
+    print_r ($csv_data[$row]);
+    for ($col = 0; $col < sizeof($csv_data[$row]); $col++) {
+    echo "<li>".$csv_data[$row][$col]."</li>";
+    }
+    echo "<br>";
+    }
+    //end data display
+     ******************************************/
+
+    //close file connection
+    fclose($file_handle);
+  }
+  else {
+    echo("CSV Reader: Could not read CSV file: ".$csv_file.".csv");
+    return FALSE;
+  }
+  return TRUE;
+}
