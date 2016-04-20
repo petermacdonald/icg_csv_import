@@ -34,7 +34,7 @@ class CSVImportBatchTestCase0 extends IslandoraWebTestCase {
     $parent = 'islandora:root';
     $ns = 'icg-collection';
 
-    if (readCSV("/tmp/shared/CSVTesting-CollectionObjects.csv", $parent, $ns)) {
+    if (icg_csv_import_readCSV("/tmp/shared/CSVTesting-CollectionObjects.csv", $parent, $ns)) {
       $this->pass("Yes! Call to readCSV() passed.");
     } else {
       $this->fail("Drats!  Call to readCSV() failed.");
@@ -53,8 +53,8 @@ class CSVImportBatchTestCase2 extends IslandoraWebTestCase {
    */
   public static function getInfo() {
     return array(
-      'name' => 'Import One Dozen Objects from CSV',
-      'description' => 'Imports a dozen new objects from /tmp/shared/CSVSample-HistoricIowaPostcards-OneDozen.csv.',
+      'name' => 'Import Four Objects from CSV',
+      'description' => 'Imports four new objects from /tmp/shared/CSVSample-HistoricIowaPostcards-FourObjects.csv.',
       'group' => 'ICG CSV Import',
     );
   }
@@ -67,15 +67,15 @@ class CSVImportBatchTestCase2 extends IslandoraWebTestCase {
   }
 
 
-  public function testDozenImport() {
+  public function testFourImport() {
     require_once('/var/www/drupal/sites/all/modules/icg_csv_import/includes/batch.inc');
 
-    debug("This is ../icg_csv_import/tests/testDozenImport().");
+    debug("This is ../icg_csv_import/tests/testFourImport().");
 
     $parent = 'icg-collection:1';
     $ns = 'test';
 
-    if (readCSV("/tmp/shared/CSVSample-HistoricIowaPostcards-OneDozen.csv", $parent, $ns)) {
+    if (icg_csv_import_readCSV("/tmp/shared/CSVSample-HistoricIowaPostcards-FourObjects.csv", $parent, $ns)) {
       $this->pass("Yes! Call to readCSV() passed.");
     } else {
       $this->fail("Drats!  Call to readCSV() failed.");

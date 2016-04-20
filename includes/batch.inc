@@ -1,6 +1,68 @@
 <?php
 
 /**
+ * David's readCSV() function.
+ *
+ * @param $csv_file
+ * @return bool
+ */
+function icg_csv_import_readCSV($csv_file, $parent, $ns) {
+  //$csv_file = "valid_example1";
+  ini_set("auto_detect_line_endings", true);
+  $csv_data = array();
+  $rowcount = 0;
+
+  //open csv file
+  if (($file_handle = fopen($csv_file, "r")) !== FALSE) {
+
+    //read first line to get header names and number of headers
+    $csv_headers = fgetcsv($file_handle);
+    $csv_headers_number = count($csv_headers);
+    $entry = array();
+
+    //check to see if number of row data matches number of headers
+    while (($row = fgetcsv($file_handle)) !== FALSE) {
+      $number_of_row_data = count($row);
+
+      //if numbers match, enter into arrays
+      if ($number_of_row_data == $csv_headers_number) {
+        $entry = $row;
+//      $csv_data[] = $entry;
+        $pid = icg_csv_import_batch_item($csv_headers, $entry, $parent, $ns, $inactive=FALSE);
+      }
+      //if numbers don't match
+      else {
+        echo("CSV Reader: Invalid number of columns at line " . ($rowcount + 2) . " (, row " . ($rowcount + 1) . ") in ".$csv_file.". Expected=$csv_headers_number; Got=$number_of_row_data");
+        return FALSE;
+      }
+      $rowcount++;
+    }
+    /*****************************************
+    //display data to check it (can be deleted)
+    echo "Total rows found: $rowcount\n";
+    for ($row = 0; $row < sizeof($csv_data); $row++) {
+    echo "<p><b>Row number $row</b></p>";
+    echo "<br>";
+    print_r ($csv_data[$row]);
+    for ($col = 0; $col < sizeof($csv_data[$row]); $col++) {
+    echo "<li>".$csv_data[$row][$col]."</li>";
+    }
+    echo "<br>";
+    }
+    //end data display
+     ******************************************/
+
+    //close file connection
+    fclose($file_handle);
+  }
+  else {
+    echo("CSV Reader: Could not read CSV file: ".$csv_file.".csv");
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
  * icg_csv_import_batch_item - Generate one new object in Islandora from CSV data.
  *
  * Generates one new object in the Islandora repository based on the XPaths ($headers)
@@ -63,7 +125,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
 
   // Check for a hashtag (comment) marker at the start of $row.  If found then echo
   // $row into the history file but do nothing else.
-  if (startsWith($record[0],'#')) {
+  if (_startsWith($record[0],'#')) {
     $fp = fopen($history,'a');    // open the history CSV file to append data
     if (!$update) array_unshift($record, '#');
     fputcsv($fp, $record);            // append $record as-is to the history
@@ -97,7 +159,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   // content model, respectively.
 
   for ($i=0, $parent=NULL; $i<$length; $i++) {
-    if (empty($headers[$i]) || startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
+    if (empty($headers[$i]) || _startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
     if (empty($row[$i])) { continue; }   // $row[$i] is empty...skip it
     if ($headers[$i] === "LABEL" || $headers[$i] === $labelXPath) {
       $label = $row[$i];
@@ -106,7 +168,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
     } else if ($headers[$i] === "CMODEL") {
       $cmodel = $row[$i];
     } else {
-      $parent = generateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
+      $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
     }
   }
 
@@ -120,7 +182,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   }
 
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
-  if ($pid = icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $obj)) {
+  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $obj)) {
     if ($update) {
       $record[0] = $pid;
     } else {
@@ -143,6 +205,18 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   return $pid;
 }
 
+// ------------------------ Private functions ----------------------------
+
+/**
+ * Call any/all registered hook_fetch_OBJ functions.
+ *
+ * @param string $path - Path of the content (file) to fetch.
+ */
+function _fetch_OBJ($path) {
+  // Call all modules implementing 'hook_fetch_OBJ':
+  module_invoke_all('fetch_OBJ');
+}
+
 /**
  * Generate a new XML node from an XPath specification.
  * @TODO...MODS is assumed to be the target schema.
@@ -153,7 +227,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
  * @param null $data
  * @param string $previous
  */
-function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' ) {
+function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' ) {
   static $ns = 'mods';
 
   // If no parent is provided, assume that we begin from the document root
@@ -163,7 +237,7 @@ function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' 
   $trimmed = trim($xpath, '/');
 
   // Grab the next element name in the $xpath
-  $parts = multiexplode(array('/','[',']'), $trimmed);
+  $parts = _multiexplode(array('/','[',']'), $trimmed);
 
   // Pop the $element off of the $parts array
   $element = array_shift($parts);
@@ -178,7 +252,7 @@ function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' 
   }
 
   // Look ahead for an $attribute in $parts
-  if (!empty($parts[0]) && startsWith($parts[0], '@')) {   // element has an attribute
+  if (!empty($parts[0]) && _startsWith($parts[0], '@')) {   // element has an attribute
     list($attr, $val) = explode('=', $parts[0], 2);
     $value = trim($val,"'");
     // dpr("attribute:$attr=$value\n");
@@ -210,19 +284,18 @@ function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' 
     if ($nodes->length > 0) {     // $current was found, set $parent to the $current node and move on.
       $parent = $nodes->item(0);
     } else {    // $current not found, append a new child node to $parent and make it the new $parent.
-      $parent = make_node($doc, $parent, $element, $attribute, $text);
+      $parent = _make_node($doc, $parent, $element, $attribute, $text);
     }
   } else {   // We have an $index!  We need a new $node attached to $parent
-    $parent = make_node($doc, $parent, $element, $attribute, $text);
+    $parent = _make_node($doc, $parent, $element, $attribute, $text);
   }
 
   // If there are any $parts left, build the $remainder xpath, pass $current as the last xpath processed, and recurse.
   if (!empty($parts[0])) {
     $remainder = implode('/',$parts);
-    generateNodeFromXPath($doc, $parent, $remainder, $data, $current);
+    _generateNodeFromXPath($doc, $parent, $remainder, $data, $current);
   }
 }
-
 
 /**
  * Make a new Fedora object with specified characteristics and belonging to an existing
@@ -238,7 +311,7 @@ function generateNodeFromXPath( $doc, $parent, $xpath, $data=NULL, $previous='' 
  * @param string $obj - The name of the file holding the OBJ datastream content.
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
-function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL) {
+function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL) {
   $module_name = basename(__FILE__, '.module');
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
@@ -267,9 +340,9 @@ function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL
   $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $parent_pid);
 
   // If $obj is specified, fetch the file contents and make a new OBJ datastream for
-  // $object from it.  @TODO...Assumes image/jpeg!
+  // $object from it.  @TODO...MIME type assumes image/jpeg!
   if ($obj) {
-    if ($temp = fetch_OBJ($obj)) {
+    if ($temp = _fetch_OBJ('MEDIADB/pdid/iowapostcards/full/'.$obj)) {
       $dsid = 'OBJ';
       $datastream = $object->constructDatastream($dsid);
       $datastream->label = 'Object Content';
@@ -303,9 +376,61 @@ function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL
     $object['DC']->setContentFromString($after);
   }
 
+  // OK, my hook_CMODEL_PID_islandora_object_ingested function is NOT firing!  So
+  // take the bull by the horns here.  
+  _make_derivatives($object);
+
   return $pid;
 }
 
+/**
+ * Make derivatives.
+ *
+ * @param AbstractObject $object - The ingested object in need of derivatives.
+ */
+function _make_derivatives($object) {
+  $module_name = basename(__FILE__, '.module');
+  $cmodels = $object->models;
+  foreach ($cmodels as $cmodel) {
+    switch ($cmodel) {
+      case 'islandora:sp_basic_image':
+        module_load_include('inc', 'islandora_basic_image', 'includes/derivatives');
+        islandora_basic_image_create_thumbnail($object);
+        islandora_basic_image_create_medium_size($object);
+        return TRUE;
+        break;
+      default:
+        watchdog($module_name, "Derivatives cannot be created for object '%pid' with CModel type '%cmodel'.", array(
+          '%pid' => $object->pid,
+          '%cmodel' => $cmodel
+        ), WATCHDOG_WARNING);
+        return FALSE;
+        break;
+    }
+  }
+}
+
+/**
+ * Make a new XML node to represent $element with an optional $value.
+ *
+ * @param $doc
+ * @param $parent
+ * @param $element
+ * @param $attribute
+ * @param null $value
+ * @return DOMElement - Returns the new XML element.
+ */
+function _make_node($doc, $parent, $element, $attribute, $value=NULL) {
+  // if (empty($value) && empty($attribute)) { return $parent; }  // no $value or $attribute, return the $parent
+  $node = $doc->createElement($element);   // create a new $node with name $element
+  $text = $doc->createTextNode(htmlentities($value));   // save $value as new $text node
+  $node->appendChild($text);   // attach the $value to the new $node
+  if ($attribute) {
+    $node->appendChild($attribute);     // attach $attribute to the new $node
+  }
+  $node = $parent->appendChild($node);  // attach the new $node to $parent and return it
+  return $node;
+}
 
 /**
  * Explode a string using multiple delimiters.  This code modified from
@@ -315,7 +440,7 @@ function icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL
  * @param $string
  * @return array
  */
-function multiexplode($delimiters, $string) {
+function _multiexplode($delimiters, $string) {
   $ready = str_replace($delimiters, $delimiters[0], $string);
   $parts = explode($delimiters[0], $ready);
   $stack = array( );
@@ -329,25 +454,6 @@ function multiexplode($delimiters, $string) {
 }
 
 /**
- * Make a new XML node to represent $element with an optional $value.
- *
- * @param $doc
- * @param $parent
- * @param $element
- * @param $attribute
- * @param null $value
- * @return DOMElement - Returns the new XML element.
- */
-function make_node($doc, $parent, $element, $attribute, $value=NULL) {
-  $node = $doc->createElement($element, $value);   // create a new $node with name $element
-  if ($attribute) {
-    $node->appendChild($attribute);     // attach $attribute to the new $node
-  }
-  $node = $parent->appendChild($node);  // attach the new $node to $parent and return it
-  return $node;
-}
-
-/**
  * Determine if a string starts with a particular character.  This code lifted
  * from http://stackoverflow.com/questions/834303/startswith-and-endswith-functions-in-php
  *
@@ -355,25 +461,30 @@ function make_node($doc, $parent, $element, $attribute, $value=NULL) {
  * @param $needle
  * @return bool
  */
-function startsWith($haystack, $needle) {
+function _startsWith($haystack, $needle) {
   // search backwards starting from haystack length characters from the end
   return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== false;
 }
 
+// ---------------------- Move this! ---------------------------
+
 /**
- * Fetch the named file from storage using FTP.
+ * Fetch a named file from storage using FTP.
  *
- * @TODO...This needs to be a hook so that others can replace it!
- *
- * @param string $filename - File name to fetch via FTP.
+ * @param string $path - Path to the file fetched via FTP.
  */
-function fetch_OBJ($filename) {
+function icg_csv_import_fetch_OBJ($path) {
+
   static $ftp_server = '132.161.10.13';
-  static $ftp_directory = 'MEDIADB/pdid/iowapostcards/full';
   static $ftp_username = 'mcfatem';
-  static $ftp_userpass = '********';
+  static $ftp_userpass = '4score&7';
 
   $module_name = basename(__FILE__, '.module');
+
+  // Split $path into directory and filename.
+  $parts = pathinfo($path);
+  $ftp_directory = $parts['dirname'];
+  $filename = $parts['basename'];
 
   // Set up a basic connection.
   $conn_id = ftp_ssl_connect($ftp_server, 21, 180);
@@ -388,6 +499,9 @@ function fetch_OBJ($filename) {
     watchdog($module_name, "FTP login failed!", array( ), WATCHDOG_ERROR);
     return FALSE;
   }
+
+  // Set FTP to passive mode.
+  ftp_pasv($conn_id, TRUE);
 
   // Attempt to change the remote directory as specified.
   $change_dir = ftp_chdir($conn_id, $ftp_directory);
@@ -408,66 +522,4 @@ function fetch_OBJ($filename) {
   }
 
   return $temp_file;
-}
-
-/**
- * David's readCSV() function.
- *
- * @param $csv_file
- * @return bool
- */
-function readCSV($csv_file, $parent, $ns) {
-  //$csv_file = "valid_example1";
-  ini_set("auto_detect_line_endings", true);
-  $csv_data = array();
-  $rowcount = 0;
-
-  //open csv file
-  if (($file_handle = fopen($csv_file, "r")) !== FALSE) {
-
-    //read first line to get header names and number of headers
-    $csv_headers = fgetcsv($file_handle);
-    $csv_headers_number = count($csv_headers);
-    $entry = array();
-
-    //check to see if number of row data matches number of headers
-    while (($row = fgetcsv($file_handle)) !== FALSE) {
-      $number_of_row_data = count($row);
-
-      //if numbers match, enter into arrays
-      if ($number_of_row_data == $csv_headers_number) {
-        $entry = $row;
-//      $csv_data[] = $entry;
-        $pid = icg_csv_import_batch_item($csv_headers, $entry, $parent, $ns, $inactive=FALSE);
-      }
-      //if numbers don't match
-      else {
-        echo("CSV Reader: Invalid number of columns at line " . ($rowcount + 2) . " (, row " . ($rowcount + 1) . ") in ".$csv_file.". Expected=$csv_headers_number; Got=$number_of_row_data");
-        return FALSE;
-      }
-      $rowcount++;
-    }
-    /*****************************************
-    //display data to check it (can be deleted)
-    echo "Total rows found: $rowcount\n";
-    for ($row = 0; $row < sizeof($csv_data); $row++) {
-    echo "<p><b>Row number $row</b></p>";
-    echo "<br>";
-    print_r ($csv_data[$row]);
-    for ($col = 0; $col < sizeof($csv_data[$row]); $col++) {
-    echo "<li>".$csv_data[$row][$col]."</li>";
-    }
-    echo "<br>";
-    }
-    //end data display
-     ******************************************/
-
-    //close file connection
-    fclose($file_handle);
-  }
-  else {
-    echo("CSV Reader: Could not read CSV file: ".$csv_file.".csv");
-    return FALSE;
-  }
-  return TRUE;
 }
