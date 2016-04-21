@@ -162,13 +162,14 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   for ($i=0, $parent=NULL; $i<$length; $i++) {
     if (empty($headers[$i]) || _startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
     if (empty($row[$i])) { continue; }   // $row[$i] is empty...skip it
-    if ($headers[$i] === "LABEL" || $headers[$i] === $labelXPath) {
+    if ($headers[$i] === "LABEL") {
       $label = $row[$i];
     } else if ($headers[$i] === "OBJ") {
       $obj = $row[$i];
     } else if ($headers[$i] === "CMODEL") {
       $cmodel = $row[$i];
     } else {
+      if ($headers[$i] === $labelXPath) { $label = $row[$i]; }
       $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
     }
   }

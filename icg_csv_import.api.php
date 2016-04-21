@@ -1,46 +1,22 @@
 <?php
-
-function icg_csv_import_init( ) {
-  // module_load_include('inc', 'icg_csv_import', 'icg_csv_import_batch');
-}
-
-function icg_csv_import_menu() {
-  $items = array();
-  $items['islandora/object/%islandora_object/manage/csv-import'] = array(
-    'title' => t('CSV Import'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('icg_csv_import_form', 2),
-    'access arguments' => array(2),
-    'access callback' => 'icg_csv_access_callback',
-    'file' => 'includes/map_ingest_form.inc',
-    'type' => MENU_LOCAL_TASK,
-  );
-  return $items;
-}
+/**
+ * @file
+ * This file documents all available hook functions to manipulate data.
+ */
 
 /**
- * ICG CSV Menu Item Access Callback
+ * Perform a binary fetch of a named file from storage.  This example performs
+ * a simple FTP transfer from a network storage server.
+ *
+ * @param string $path
+ *   The path to the file.
+ *
+ * @return string 
+ *   Path to a temporary, local copy of the target file.
  */
-function icg_csv_access_callback($object) {
-  if (user_access('ingest fedora objects')) {
-    $relation = '';
-    $collection_models = islandora_basic_collection_get_collection_content_models();
-    $collection_predicates = array(
-      'isMemberOfCollection',
-      'isMemberOf',
-    );
-    $is_a_collection = count(array_intersect($collection_models, $object->models)) > 0;
-    return $is_a_collection;
-  }
-  return FALSE;
-}
+function hook_fetch_OBJ($path) {
 
-/**
- * Implements hook_fetch_OBJ.
- */
-function icg_csv_import_fetch_OBJ($path) {
-
-  static $ftp_username = '*******';   // @TODO...credentials should be parameters
+  static $ftp_username = 'mcfatem';   // @TODO...credentials should be parameters
   static $ftp_userpass = '*******';   // @TODO...update or REMOVE this! 
 
   $module_name = basename(__FILE__, '.module');
@@ -88,4 +64,3 @@ function icg_csv_import_fetch_OBJ($path) {
 
   return $temp_file;
 }
-
