@@ -78,6 +78,7 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
  */
 function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test', $inactive=FALSE) {
 
+  static $temporary = '/tmp';
   static $update;
   static $history;
   static $MODS = '/templates/MODS.xml';
@@ -92,7 +93,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   // On the first call to this function, open a temporary .csv file and write the
   // $marker cell followed by $headers.
   if (empty($history)) {
-    $history = 'temporary://CSV_import_history_'.$marker.'.csv';
+    $history = $temporary.'/CSV_import_history_'.$marker.'.csv';
     if (!$temp = fopen($history,'w')) {
       watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
@@ -173,7 +174,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   }
 
   // Save $doc as a temporary file for debugging purposes.
-  $temp = drupal_tempnam('temporary://', 'XML_');
+  $temp = drupal_tempnam($temporary, 'XML_');
   $mods = $doc->saveXML();
   if (!file_put_contents($temp, $mods)) {
     watchdog($module_name, "Could not save XML as a temporary text file.", array( ) , WATCHDOG_WARNING);
@@ -214,7 +215,8 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
  */
 function _fetch_OBJ($path) {
   // Call all modules implementing 'hook_fetch_OBJ':
-  module_invoke_all('fetch_OBJ');
+  $return = module_invoke_all('fetch_OBJ', $path);
+  return $return[0];
 }
 
 /**
@@ -316,6 +318,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NUL
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
   $collection_object = islandora_object_load($parent_pid);
+  
   if ($collection_object) {
     $repo = $collection_object->repository;
   }
@@ -323,6 +326,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NUL
     watchdog($module_name, "Could not open parent object '%parent'.", array('%parent' => $parent_pid), WATCHDOG_ERROR);
     return FALSE;
   }
+  
   $object = $repo->constructObject($ns);    // construct a new object in the specified namespace
   $object->models = $content_model;         // associate it with $content_model
   $object->label = $label;                  // use the label provided
@@ -342,7 +346,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NUL
   // If $obj is specified, fetch the file contents and make a new OBJ datastream for
   // $object from it.  @TODO...MIME type assumes image/jpeg!
   if ($obj) {
-    if ($temp = _fetch_OBJ('MEDIADB/pdid/iowapostcards/full/'.$obj)) {
+    if ($temp = _fetch_OBJ($obj)) {
       $dsid = 'OBJ';
       $datastream = $object->constructDatastream($dsid);
       $datastream->label = 'Object Content';
@@ -363,7 +367,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NUL
 
   // Now, get the MODS-to-DC transform.  @TODO...$transform needs to be parameter
   $xsl = new DOMDocument( );
-  $transform = '/tmp/shared/mods_to_dc.xsl';
+  $transform = '/var/www/drupal/sites/all/modules/icg_csv_import/tests/data/mods_to_dc.xsl';
   if (!$xsl->load($transform)) { die("Failed to load Transform file '$transform!'"); }
   $xslt = new XSLTProcessor( );
   $xslt->importStyleSheet($xsl);
@@ -401,7 +405,7 @@ function _make_derivatives($object) {
         break;
       default:
         watchdog($module_name, "Derivatives cannot be created for object '%pid' with CModel type '%cmodel'.", array(
-          '%pid' => $object->pid,
+          '%pid' => $object->id,
           '%cmodel' => $cmodel
         ), WATCHDOG_WARNING);
         return FALSE;
@@ -466,60 +470,3 @@ function _startsWith($haystack, $needle) {
   return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== false;
 }
 
-// ---------------------- Move this! ---------------------------
-
-/**
- * Fetch a named file from storage using FTP.
- *
- * @param string $path - Path to the file fetched via FTP.
- */
-function icg_csv_import_fetch_OBJ($path) {
-
-  static $ftp_server = '132.161.10.13';
-  static $ftp_username = 'mcfatem';
-  static $ftp_userpass = '4score&7';
-
-  $module_name = basename(__FILE__, '.module');
-
-  // Split $path into directory and filename.
-  $parts = pathinfo($path);
-  $ftp_directory = $parts['dirname'];
-  $filename = $parts['basename'];
-
-  // Set up a basic connection.
-  $conn_id = ftp_ssl_connect($ftp_server, 21, 180);
-  if (!$conn_id) {
-    watchdog($module_name, "FTP connection failed!", array( ), WATCHDOG_ERROR);
-    return FALSE;
-  }
-
-  // Login with the specified FTP username and password.
-  $login_result = ftp_login($conn_id, $ftp_username, $ftp_userpass);
-  if (!$login_result) {
-    watchdog($module_name, "FTP login failed!", array( ), WATCHDOG_ERROR);
-    return FALSE;
-  }
-
-  // Set FTP to passive mode.
-  ftp_pasv($conn_id, TRUE);
-
-  // Attempt to change the remote directory as specified.
-  $change_dir = ftp_chdir($conn_id, $ftp_directory);
-  if (!$change_dir) {
-    watchdog($module_name, "FTP chdir to '%directory' failed!", array('%directory' => $ftp_directory), WATCHDOG_ERROR);
-    die("ftp_chdir failed!");
-    return FALSE;
-  } else {
-    $txt = "Current directory is: " . ftp_pwd($conn_id);
-    watchdog($module_name, $txt, array( ), WATCHDOG_INFO);
-  }
-
-  // Fetch a file via FTP.
-  $temp_file = drupal_tempnam('temporary://', 'import_content_');   // open a temp file
-  if (!ftp_get($conn_id, $temp_file, $filename, FTP_BINARY)) {
-    watchdog($module_name, "Could not download file '%filename' via FTP.", array('%filename' => $filename), WATCHDOG_ERROR);
-    return FALSE;
-  }
-
-  return $temp_file;
-}
