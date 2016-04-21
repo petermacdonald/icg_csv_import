@@ -6,100 +6,100 @@
 
 /**
  * @param IslandoraFedoraObject $collection
+ *
  * @return array
+ *   An array describing each model allowed in this collection
+ *   - pid: The PID with which the content model object.
+ *     - pid: The PID with which the content model object.
+ *     - name: The default label to use for new child objects of this type.
+ *     - namespace: The default namespace for new child objects of this type.
+ *
  * @throws Exception
  */
-function _icg_csv_import_get_available_models(IslandoraFedoraObject $collection) {
+function _icg_csv_import_get_available_ingest_models(
+  IslandoraFedoraObject $collection) {
+
   module_load_include('inc', 'islandora', 'includes/utilities');
+  module_load_include('inc', 'xml_form_builder', 'includes/associations');
+
   $all_content_models = islandora_get_content_models();
 
-
   if (!($policy = $collection['COLLECTION_POLICY'])) {
-    throw new Exception('No collection policy was found for this collection. Please contact your site admin.');
+    throw new Exception('No collection policy was found for this collection.
+     Please contact your site admin.');
   }
 
   $policy = new CollectionPolicy($policy->content);
   $policy_content_models = $policy->getContentModels();
 
   $ret = array();
+  foreach ($policy_content_models as $available_model) {
 
-  foreach ($all_content_models as $pid => $content_model) {
+    // We'll use the pid as the key for our array.
+    $pid = $available_model['pid'];
 
-    // Skip unused/unavailable cModels.
-    if (!($content_model_in_policy = isset($policy_content_models[$pid]))) {
-      continue;
+    // Build our return array, keyed by $pid.
+
+    // This provides the human readable name of the cModel.
+    $ret['models'][$pid] = $all_content_models[$pid]['label'];
+
+    // This provides the namespace.
+    $ret['namespaces'][$pid] = $available_model['namespace'];
+
+    // Grab all associated forms, regardless of DSID.
+    $associations = xml_form_builder_get_associations(
+      array(), $available_model, array(), FALSE);
+
+    // Build an array of forms, though I think we're only using MODS (?).
+    foreach ($associations as $association) {
+      $ret['forms'][$pid][] = $association;
     }
-
-    $ret[$pid] = $content_model['label'];
-    
   }
 
   return $ret;
 }
-
-
-function _icg_csv_import_get_available_namespaces(IslandoraFedoraObject $collection, $pid) {
-  module_load_include('inc', 'islandora', 'includes/utilities');
-
-  $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
-  $policy_content_models = $policy->getContentModels();
-
-  $namespace = $policy_content_models[$pid]['namespace']; // CAN THERE BE MORE THAN ONE?
-
-  $ret = array();
-  $ret[$namespace] = $namespace;
-
-  return $ret;
-}
-
-
 
 /**
- * @param array $islandora_cmodels
- * @return array where id = form_name
+ * Small callback for ajax to get associated forms.
+ *
+ * @param $selected_cmodel
+ * @param $xml_forms
+ *
+ * @return array
  */
-function _icg_csv_import_get_cmodel_associations(Array $islandora_cmodels) {
-  module_load_include('inc', 'xml_form_builder', 'includes/associations');
+function _ajax_callback_xml_form($selected_cmodel, $xml_forms) {
+  $ret = array();
 
-  $associations = xml_form_builder_get_associations(array(), $islandora_cmodels, array(), FALSE);
+  $cmodel_forms = $xml_forms[$selected_cmodel];
 
-  $ret = array ();
-  foreach ($associations as $association) {
-    $form_name = $association['form_name'];
-    $ret[$form_name] = $form_name;
+  foreach ($cmodel_forms as $form_name) {
+    // Do a check here "['enabled']" should be TRUE.
+    $name = $form_name['form_name'];
+    $ret[$name] = $name;
   }
 
   return $ret;
 }
 
-// @DEPRECATED or UNAPPRECIATED?? @TODO look at this more and figure out what you were trying to do...
-//function _icg_csv_import_get_form_part1(IslandoraFedoraObject $collection) {
-//  module_load_include('inc', 'islandora', 'includes/utilities');
-//  module_load_include('inc', 'xml_form_builder', 'includes/associations');
-//
-//  $all_content_models = islandora_get_content_models();
-//
-//  $policy = new CollectionPolicy($collection['COLLECTION_POLICY']->content);
-//  $policy_content_models = $policy->getContentModels();
-//
-//  $cmodel_names_forms = array();
-//
-//  foreach ($all_content_models as $pid => $content_model) {
-//
-//    // Skip unused/unavailable cModels.
-//    if (!($content_model_in_policy = isset($policy_content_models[$pid]))) {
-//      continue;
-//    }
-//
-//    // Gather XML form associations.
-//    $associations = xml_form_builder_get_associations(array(), array($pid), array(), FALSE);
-//
-//    $cmodel_names_forms[$pid] = array (
-//      'namespace' => $policy_content_models[$pid]['namespace'],
-//      'content_model_label' => $content_model['label'],
-//      'associated_forms' => $associations,
-//    );
-//  }
-//
-//  return $cmodel_names_forms;
-//}
+/**
+ * Leaving this here in case it needs to be a SPARQL query.
+ *
+ * STUB - silly function but here in case this needs to be more robust. Right
+ * now we're relying completely on what the COLLECTION_POLICY dictates about
+ * namespace; Either we'll need to traverse *->RELS_EXT to find out
+ * about all the namespaces... or just SPARQL bright.
+ *
+ * @param $selected_cmodel
+ * @param $namespaces
+ *
+ * @return array
+ */
+function _ajax_callback_ns_form($selected_cmodel, $namespaces) {
+  $ret = array();
+
+  $ns = $namespaces[$selected_cmodel];
+  $ret[$ns] = $ns;
+
+  return $ret;
+}
+
