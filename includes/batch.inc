@@ -67,8 +67,10 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
  * and fire them off.
  *
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
+ *
+ * function icg_csv_import_form_submit(&$form, &$form_state) {
  */
-function icg_csv_import_form_submit(&$form, &$form_state) {
+function icg_csv_import_build_batch($form_state) {
   $batch = array(
     'title' => t('Importing CSV ...'),
     'operations' => array(),
@@ -77,22 +79,23 @@ function icg_csv_import_form_submit(&$form, &$form_state) {
     'error_message' => t('An error occurred during processing'),
     'finished' => 'icg_csv_import_import_finished',
   ) ;
-  if ( isset( $form_state['values']['csvupload'] ) ) {
-    if ( $handle = fopen($form_state['values']['csvupload'], 'r') ) {
-      $batch['operations'][] = array('_icg_csv_import_remember_filename', array( $form_state['values']['csvupload'] ) ) ;
-      $line_count = 1 ;
-      $first = TRUE ;
-      $line = fgetcsv($handle, 4096);
-      while ( $line = fgetcsv($handle, 4096) ) {
-        /**
-         * we use base64_encode to ensure we don't overload the batch
-         * processor by stuffing complex objects into it
-         */
-        $batch['operations'][] = array('_icg_csv_import_import_line', array(array_map('base64_encode', $line)));
-      }
-      fclose($handle);
-    } // we caught this in icg_csv_import_form_validate()
-  } // we caught this in icg_csv_import_form_validate()
+
+  if ($handle = fopen($form_state['all_values']['csv_file']['uri'], 'r')) {
+    $batch['operations'][] = array('_icg_csv_import_remember_filename', array($form_state['all_values']['csv_file']['uri'])) ;
+    $line_count = 1 ;
+    $first = TRUE ;
+    $headers = fgetcsv($handle, 4096);      // first line is $headers
+    
+    dpm($batch);
+    
+    while ($line = fgetcsv($handle, 4096)) {
+      // we use base64_encode to ensure we don't overload the batch processor by stuffing complex objects into it
+      $batch['operations'][] = array('_icg_csv_import_import_line', array(array_map('base64_encode', $line)));
+    }
+    fclose($handle);
+  } 
+
+  // Go!
   batch_set($batch);
 }
 
@@ -163,13 +166,13 @@ function _icg_csv_import_import_line($line, &$context) {
    *
    * You can comment out the line above if you uncomment this one.
    */
-  $context['message'] = t('Importing %title', array('%title' => $line[2]));
+  //$context['message'] = t('Importing %title', array('%title' => $line[2]));
 
   /**
    * In order to slow importing and debug better, we can uncomment
    * this line to make each import slightly slower.
    */
-  usleep(2500);
+  //usleep(2500);
 
   /**
    * If the first two columns in the row are "ROW", "FAILS" then we

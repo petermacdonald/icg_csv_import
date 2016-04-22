@@ -61,7 +61,7 @@ function icg_csv_import_form_submit($form, &$form_state) {
   }
 
   // Form multi-part 'handler'
-  if ($form_state['step'] < 2) {
+  if ($form_state['step'] != 0) {
     // Do not submit the form
     $form_state['rebuild'] = TRUE;
     // Instead go to the next page.
@@ -69,12 +69,17 @@ function icg_csv_import_form_submit($form, &$form_state) {
   }
   else {
     dpm($form_state);
-    // do something with $form_state[all_values] (drupal batch?)
-    // redirect away from form.
+    $parts = explode('/', $form_state['complete form']['#action'], 5);
+    $form_state['all_values']['parent_pid'] = $parts[3];
+    // @TODO... Do something with $form_state[all_values] (drupal batch?)
+    // icg_csv_import_build_batch($form_state);
+    // @TODO...redirect away from form.  Like to the collection object?
+    $path = '/'.$parts[1].'/'.$parts[2].'/'.$parts[3];
+    dpm($parts);
+    dpm($path);
+    drupal_goto($path);
   }
 }
-
-
 
 
 /**
