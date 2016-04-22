@@ -80,23 +80,28 @@ function icg_csv_import_build_batch($form_state) {
     'finished' => 'icg_csv_import_import_finished',
   ) ;
 
-  if ($handle = fopen($form_state['all_values']['csv_file']['uri'], 'r')) {
-    $batch['operations'][] = array('_icg_csv_import_remember_filename', array($form_state['all_values']['csv_file']['uri'])) ;
+  $csv_filename = $form_state['all_values']['csv_file']->uri;
+  ini_set('auto_detect_line_endings', TRUE);
+  
+  if ($handle = fopen($csv_filename, 'r')) {
     $line_count = 1 ;
     $first = TRUE ;
-    $headers = fgetcsv($handle, 4096);      // first line is $headers
+    $headers = fgetcsv($handle);      // first line is $headers
+    $batch['operations'][] = array('icg_csv_import_remember', array($csv_filename, $form_state['all_values'], $headers));
     
-    dpm($batch);
-    
-    while ($line = fgetcsv($handle, 4096)) {
-      // we use base64_encode to ensure we don't overload the batch processor by stuffing complex objects into it
-      $batch['operations'][] = array('_icg_csv_import_import_line', array(array_map('base64_encode', $line)));
+    while ($line = fgetcsv($handle)) {
+      // use base64_encode to ensure we don't overload the batch processor by stuffing complex objects into it
+      $batch['operations'][] = array('icg_csv_import_import_line', array(array_map('base64_encode', $line)));
     }
     fclose($handle);
-  } 
+  }
 
-  // Go!
+  // Return path
+  $path = '/islandora/object/'.$form_state['all_values']['parent_pid'];
+  
+  // Set for batch processing...and Go!
   batch_set($batch);
+  batch_process($path);
 }
 
 /**
@@ -127,22 +132,23 @@ function icg_csv_import_import_finished($success, $results, $operations) {
       }
     }
     else {
-      drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', $targs), 'error');
+      drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', array('%csv_directory' => $dir)), 'error');
     }
   }
   return t('The CSV import has completed.');
 }
 
 /**
- * Remember the uploaded CSV filename
+ * Remember the uploaded CSV filename, control parameters, and header.
  *
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
  *
- * @TODO is there a better way to pass a value from inception of the
- * batch to the finished function?
+ * @TODO is there a better way to pass a value from inception of the batch to the finished function?
  */
-function _icg_csv_import_remember_filename($filename, &$context) {
-  $context['results']['uploaded_filename'] = $filename ;
+function icg_csv_import_remember($filename, $parameters, $headers, &$context) {
+  $context['results']['uploaded_filename'] = $filename;
+  $context['results']['parameters'] = $parameters;
+  $context['results']['headers'] = $headers;
 }
 
 /**
@@ -150,38 +156,41 @@ function _icg_csv_import_remember_filename($filename, &$context) {
  *
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
  */
-function _icg_csv_import_import_line($line, &$context) {
+function icg_csv_import_import_line($line, &$context) {
   $context['results']['rows_imported']++;
   $line = $cleaned_line = array_map('base64_decode', $line);
+  
+  dpm($context);
 
-  /**
-   * Simply show the import row count.
-   */
+  // Show the import row count
   $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
+  
+  // Pull parameters from $context...
+  $headers = $context['results']['headers'];
+  $parent_pid = $context['results']['parameters']['parent_pid'];
+  $namespace = $context['results']['parameters']['namespace'];
+  $inactive = $context['results']['parameters']['ingest_as_inactive'];
 
+  // Process this line of CSV data.  If the import fails, save the $line in the failed_rows array.
+  if (!$pid = icg_csv_import_batch_item($headers, $line, $parent_pid, $namespace, $inactive)) {
+    $context['results']['failed_rows'][] = $line;
+  }
+  
   /**
    * Alternatively, our example CSV happens to have the title in the
    * third column, so we can uncomment this line to display "Importing
    * Blahblah" as each row is parsed.
    *
    * You can comment out the line above if you uncomment this one.
-   */
-  //$context['message'] = t('Importing %title', array('%title' => $line[2]));
-
-  /**
+   *
+   * $context['message'] = t('Importing %title', array('%title' => $line[2]));
+   * 
    * In order to slow importing and debug better, we can uncomment
    * this line to make each import slightly slower.
+   *
+   * usleep(2500);
+   * 
    */
-  //usleep(2500);
-
-  /**
-   * If the first two columns in the row are "ROW", "FAILS" then we
-   * will add that row to the CSV we'll return to the importing person
-   * after the import completes.
-   */
-  if ( $line[1] == 'ROW' && $line[2] == 'FAILS' ) {
-    $context['results']['failed_rows'][] = $line ;
-  }
 }
 
 

@@ -35,6 +35,8 @@ function icg_csv_import_form($form, &$form_state, $collection) {
  * @param $form_state
  */
 function icg_csv_import_form_submit($form, &$form_state) {
+  module_load_include('inc', 'icg_csv_import', 'includes/batch');
+
   // Save our current values to all_values.
   $form_state['all_values'] += $form_state['values'];
   # dpm($form_state);
@@ -70,14 +72,9 @@ function icg_csv_import_form_submit($form, &$form_state) {
   else {
     dpm($form_state);
     $parts = explode('/', $form_state['complete form']['#action'], 5);
-    $form_state['all_values']['parent_pid'] = $parts[3];
+    $form_state['all_values']['parent_pid'] = str_replace('%3A', ':', $parts[3]);
     // @TODO... Do something with $form_state[all_values] (drupal batch?)
-    // icg_csv_import_build_batch($form_state);
-    // @TODO...redirect away from form.  Like to the collection object?
-    $path = '/'.$parts[1].'/'.$parts[2].'/'.$parts[3];
-    dpm($parts);
-    dpm($path);
-    drupal_goto($path);
+    icg_csv_import_build_batch($form_state);
   }
 }
 
