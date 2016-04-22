@@ -37,7 +37,7 @@ function icg_csv_import_form($form, &$form_state, $collection) {
 function icg_csv_import_form_submit($form, &$form_state) {
   // Save our current values to all_values.
   $form_state['all_values'] += $form_state['values'];
-  dpm($form_state);
+  # dpm($form_state);
 
   // CSV file handler. I'm sure this could be done better.
   if (isset($form_state['values']['csv_file'])) {
@@ -106,8 +106,15 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
     module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
     // This will throw an error if no CPOLICY.
-    $form_state['collection_policy'] =
+    $collection_info = 
       _icg_csv_import_get_available_ingest_models($collection);
+    
+    // Keep a copy in the form_state, we may need it later, else remove.
+    $form_state['collection_policy'] = $collection_info;
+
+    // Temporary parent_pid saved in all_values; this will be validated.
+    $form_state['all_values']['parent_pid'] =
+      key($collection_info['namespaces']);
   }
 
   switch ($step):
