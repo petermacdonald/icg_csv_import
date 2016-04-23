@@ -67,7 +67,7 @@ function _icg_csv_import_get_available_ingest_models(
  *
  * @return array
  */
-function _ajax_callback_xml_form($selected_cmodel, $xml_forms) {
+function _icg_ajax_callback_xml_form($selected_cmodel, $xml_forms) {
   $ret = array();
 
   $cmodel_forms = $xml_forms[$selected_cmodel];
@@ -94,7 +94,7 @@ function _ajax_callback_xml_form($selected_cmodel, $xml_forms) {
  *
  * @return array
  */
-function _ajax_callback_ns_form($selected_cmodel, $namespaces) {
+function _icg_ajax_callback_ns_form($selected_cmodel, $namespaces) {
   $ret = array();
 
   $ns = $namespaces[$selected_cmodel];
@@ -103,3 +103,32 @@ function _ajax_callback_ns_form($selected_cmodel, $namespaces) {
   return $ret;
 }
 
+/**
+ * Iterates through a form array and replaces specific fields and their options.
+ *
+ * @param array $array
+ * @param array $mappable_options
+ *
+ * This function needs more comments than 0, what the heck was I thinking?
+ */
+function _icg_form_array_iterator_set_options(&$array, $mappable_options) {
+  $manipulable_fields = array(
+    'textfield',
+    'textarea',
+    'tags',
+  );
+
+  if(isset($array['#type'])
+    && in_array($array['#type'], $manipulable_fields)) {
+    $array['#type'] = 'select';
+    $array['#options'] = $mappable_options;
+    // Do we want to append something to the description as help text?
+  }
+  else if (is_array($array)) {
+    foreach($array as $key => &$value){
+      if (isset($value) && is_array($value)) {
+        _icg_form_array_iterator_set_options($value, $mappable_options);
+      }
+    }
+  }
+}
