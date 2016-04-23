@@ -104,8 +104,8 @@ function icg_csv_import_build_batch($form_state) {
       watchdog($module_name, "Could not open CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
     }
+    // debug("Successfully opened file '$history' to capture CSV import status.");
 
-    debug("Successfully opened file '$history' to capture CSV import status.");
     $record = $headers;
 
     // Determine if a date/time marker is already present in the first $headers cell.  If yes,
@@ -119,8 +119,13 @@ function icg_csv_import_build_batch($form_state) {
       array_unshift($record, $marker);
     }
 
+    // Write the $headers to the history file and close it.
     fputcsv($fp, $record);
     fclose($fp);
+
+    // Get the parent_pid parameter and save it.
+    $parent_pid = $form_state['build_info']['args'][0]->id;
+    $form_state['all_values']['parent_pid'] = $parent_pid;
 
     // First batch operation...save key parameters
     $form_state['all_values']['history'] = $history;
@@ -206,18 +211,12 @@ function icg_csv_import_import_line($line, &$context) {
   
   // Pull parameters from $context...
   $headers = $context['results']['headers'];
-  $parent_pid = $context['results']['parameters']['parent_pid'];
-  $namespace = $context['results']['parameters']['namespace'];
-  $inactive = $context['results']['parameters']['ingest_as_inactive'];
-  $history = $context['results']['parameters']['history'];
-  $update = $context['results']['parameters']['update'];
 
   // Process this line of CSV data.  If the import fails, save the $line in the failed_rows array.
-  if (!$pid = icg_csv_import_batch_item($headers, $line, $parent_pid, $namespace, $history, $update, $inactive)) {
+  if (!$pid = icg_csv_import_batch_item($headers, $line, $context['results']['parameters'])) {
     $context['results']['failed_rows'][] = $line;
   }
 }
-
 
 /**
  * icg_csv_import_batch_item - Generate one new object in Islandora from CSV data.
@@ -227,19 +226,30 @@ function icg_csv_import_import_line($line, &$context) {
  *
  * @param array() $headers - XPaths of destination fields
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
- * @param string $parent_pid  - The collection object, presumably, that the new object will belong to
- * @param string $namespace - The namespace, no trailing colon, that the new object will be defined in
- * @param string $history - Open, temporary CSV file to capture history in
- * @param bool $update - Indicates if the operation is updating an existing object or creating a new one
- * @param bool $inactive - Indicates if the new object is to be active (default) or inactive
+ * @param array() $controls - Process controls passed from the user interface. Elements include: 
+ * 
+ *   parent_pid
+ *   namespace
+ *   inactive
+ *   history
+ *   update
+ *   transform
  *
  * @return string|bool - The PID of the ingested object, or FALSE in case of an error
  */
-function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test', $history, $update, $inactive=FALSE) {
+function icg_csv_import_batch_item($headers, $row, $controls) {
   $module_name = basename(__FILE__, '.module');
   static $temporary = '/tmp';
   static $MODS = '/templates/MODS.xml';
   static $labelXPath = '/mods/titleInfo/title';   // @TODO...make this a parameter!
+
+  $parent_pid = $controls['parent_pid'];
+  $namespace = $controls['namespace'];
+  $inactive = $controls['ingest_as_inactive'];
+  $history = $controls['history'];
+  $update = $controls['update'];
+  // $transform = $controls['transform'];   // @TODO...not right in map_ingest_form.inc
+  $transform = '/var/www/drupal/sites/all/modules/icg_csv_import/tests/data/mods_to_dc.xsl';
 
   $format = 'Y-m-d:H:i:s';
   $marker = date($format);
@@ -306,7 +316,7 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
   }
 
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
-  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $obj)) {
+  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj)) {
     if ($update) {
       $record[0] = $pid;
     } else {
@@ -433,10 +443,12 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  * @param string $cmodel - The content model to be associated with the new object.
  * @param string $label - The label (title?) to be applied to the Fedora object.
  * @param string $mods - The MODS record content as a string.
+ * @param string $transform - Path to the MODS-to-DC transform xslt.
  * @param string $obj - The name of the file holding the OBJ datastream content.
+ * 
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
-function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NULL) {
+function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL) {
   $module_name = basename(__FILE__, '.module');
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
@@ -488,9 +500,8 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $obj=NUL
     return FALSE;
   }
 
-  // Now, get the MODS-to-DC transform.  @TODO...$transform needs to be parameter
+  // Now, get the MODS-to-DC transform.  
   $xsl = new DOMDocument( );
-  $transform = '/var/www/drupal/sites/all/modules/icg_csv_import/tests/data/mods_to_dc.xsl';
   if (!$xsl->load($transform)) { die("Failed to load Transform file '$transform!'"); }
   $xslt = new XSLTProcessor( );
   $xslt->importStyleSheet($xsl);

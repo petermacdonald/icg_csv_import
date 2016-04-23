@@ -70,10 +70,29 @@ function icg_csv_import_form_submit($form, &$form_state) {
     $form_state['step']++;
   }
   else {
+
+    // Temporary code to have a look at the xml form data...
     // dpm($form_state);
-    $parts = explode('/', $form_state['complete form']['#action'], 5);
-    $form_state['all_values']['parent_pid'] = str_replace('%3A', ':', $parts[3]);
-    // @TODO... Do something with $form_state[all_values] (drupal batch?)
+    
+    module_load_include('inc', 'xml_form_api', 'XMLFormDefinition');
+    module_load_include('inc', 'xml_form_builder', 'XMLFormRepository');
+    $definition =
+      new XMLFormDefinition(XMLFormRepository::Get($form_state['all_values']['xml_form']));
+    $form_as_xml = $definition->createXMLDocument( );
+
+    $form_as_xml->formatOutput = true;
+    dsm($form_as_xml->saveXML(), 'status');
+
+    // $transform = $definition->getTransformFileName( );     // @TODO...not right!
+    // $form_state['all_values']['transform'] = $transform;
+
+    // $node = $definition->get()->documentElement;
+    // dpm($node);
+    // var_dump($node);
+    
+    //...end of Temporary code
+
+    // Build the batch process calls and get to it.
     icg_csv_import_build_batch($form_state);
   }
 }
