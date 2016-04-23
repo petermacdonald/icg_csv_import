@@ -71,6 +71,10 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
  * function icg_csv_import_form_submit(&$form, &$form_state) {
  */
 function icg_csv_import_build_batch($form_state) {
+  $module_name = basename(__FILE__, '.module');
+  static $temporary = '/tmp';
+  static $update;
+
   $batch = array(
     'title' => t('Importing CSV ...'),
     'operations' => array(),
@@ -84,11 +88,46 @@ function icg_csv_import_build_batch($form_state) {
   ini_set('auto_detect_line_endings', TRUE);
   
   if ($handle = fopen($csv_filename, 'r')) {
-    $line_count = 1 ;
-    $first = TRUE ;
-    $headers = fgetcsv($handle);      // first line is $headers
+    $headers = fgetcsv($handle);                 // first line is $headers
+
+    $format = 'Y-m-d:H:i:s';
+    $marker = date($format);
+
+    // Open a temporary .csv file and write the $marker cell followed by $headers.
+    $history = $temporary.'/CSV_import_history_'.$marker.'.csv';
+    if (!$temp = fopen($history,'w')) {
+      watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
+      return FALSE;
+    }
+
+    if (!$fp = fopen($history, 'w')) {
+      watchdog($module_name, "Could not open CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
+      return FALSE;
+    }
+
+    debug("Successfully opened file '$history' to capture CSV import status.");
+    $record = $headers;
+
+    // Determine if a date/time marker is already present in the first $headers cell.  If yes,
+    // this process will update the first column, otherwise it will append a new column of data
+    // the the history.
+    if ($previous = strtotime($record[0])) {
+      $update = TRUE;
+      $record[0] = $marker;
+    } else {
+      $update = FALSE;
+      array_unshift($record, $marker);
+    }
+
+    fputcsv($fp, $record);
+    fclose($fp);
+
+    // First batch operation...save key parameters
+    $form_state['all_values']['history'] = $history;
+    $form_state['all_values']['update'] = $update;
     $batch['operations'][] = array('icg_csv_import_remember', array($csv_filename, $form_state['all_values'], $headers));
-    
+
+    // Read and process the CSV file one line at a time
     while ($line = fgetcsv($handle)) {
       // use base64_encode to ensure we don't overload the batch processor by stuffing complex objects into it
       $batch['operations'][] = array('icg_csv_import_import_line', array(array_map('base64_encode', $line)));
@@ -160,7 +199,7 @@ function icg_csv_import_import_line($line, &$context) {
   $context['results']['rows_imported']++;
   $line = $cleaned_line = array_map('base64_decode', $line);
   
-  dpm($context);
+  // dpm($context);
 
   // Show the import row count
   $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
@@ -170,27 +209,13 @@ function icg_csv_import_import_line($line, &$context) {
   $parent_pid = $context['results']['parameters']['parent_pid'];
   $namespace = $context['results']['parameters']['namespace'];
   $inactive = $context['results']['parameters']['ingest_as_inactive'];
+  $history = $context['results']['parameters']['history'];
+  $update = $context['results']['parameters']['update'];
 
   // Process this line of CSV data.  If the import fails, save the $line in the failed_rows array.
-  if (!$pid = icg_csv_import_batch_item($headers, $line, $parent_pid, $namespace, $inactive)) {
+  if (!$pid = icg_csv_import_batch_item($headers, $line, $parent_pid, $namespace, $history, $update, $inactive)) {
     $context['results']['failed_rows'][] = $line;
   }
-  
-  /**
-   * Alternatively, our example CSV happens to have the title in the
-   * third column, so we can uncomment this line to display "Importing
-   * Blahblah" as each row is parsed.
-   *
-   * You can comment out the line above if you uncomment this one.
-   *
-   * $context['message'] = t('Importing %title', array('%title' => $line[2]));
-   * 
-   * In order to slow importing and debug better, we can uncomment
-   * this line to make each import slightly slower.
-   *
-   * usleep(2500);
-   * 
-   */
 }
 
 
@@ -204,55 +229,21 @@ function icg_csv_import_import_line($line, &$context) {
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
  * @param string $parent_pid  - The collection object, presumably, that the new object will belong to
  * @param string $namespace - The namespace, no trailing colon, that the new object will be defined in
+ * @param string $history - Open, temporary CSV file to capture history in
+ * @param bool $update - Indicates if the operation is updating an existing object or creating a new one
  * @param bool $inactive - Indicates if the new object is to be active (default) or inactive
  *
  * @return string|bool - The PID of the ingested object, or FALSE in case of an error
  */
-function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test', $inactive=FALSE) {
-
+function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test', $history, $update, $inactive=FALSE) {
+  $module_name = basename(__FILE__, '.module');
   static $temporary = '/tmp';
-  static $update;
-  static $history;
   static $MODS = '/templates/MODS.xml';
   static $labelXPath = '/mods/titleInfo/title';   // @TODO...make this a parameter!
 
   $format = 'Y-m-d:H:i:s';
   $marker = date($format);
   $path = drupal_get_path('module','icg_csv_import');
-
-  $module_name = basename(__FILE__, '.module');
-
-  // On the first call to this function, open a temporary .csv file and write the
-  // $marker cell followed by $headers.
-  if (empty($history)) {
-    $history = $temporary.'/CSV_import_history_'.$marker.'.csv';
-    if (!$temp = fopen($history,'w')) {
-      watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
-      return FALSE;
-    }
-
-    if (!$fp = fopen($history, 'w')) {
-      watchdog($module_name, "Could not open CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
-      return FALSE;
-    }
-
-    debug("Successfully opened file '$history' to capture CSV import status.");
-    $record = $headers;
-
-    // Determine if a date/time marker is already present in the first $headers cell.  If yes,
-    // this process will update the first column, otherwise it will append a new column of data
-    // the the history.
-    if ($previous = strtotime($record[0])) {
-      $update = TRUE;
-      $record[0] = $marker;
-    } else {
-      $update = FALSE;
-      array_unshift($record, $marker);
-    }
-
-    fputcsv($fp, $record);
-    fclose($fp);
-  }
 
   $record = $row;
 
@@ -281,7 +272,6 @@ function icg_csv_import_batch_item($headers, $row, $parent_pid, $namespace='test
 
   $length = min(count($headers), count($row));
   $obj = $cmodel = $label = NULL;
-
 
   // Primary loop...where the rubber meets the road.
   //

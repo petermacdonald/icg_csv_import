@@ -70,7 +70,7 @@ function icg_csv_import_form_submit($form, &$form_state) {
     $form_state['step']++;
   }
   else {
-    dpm($form_state);
+    // dpm($form_state);
     $parts = explode('/', $form_state['complete form']['#action'], 5);
     $form_state['all_values']['parent_pid'] = str_replace('%3A', ':', $parts[3]);
     // @TODO... Do something with $form_state[all_values] (drupal batch?)

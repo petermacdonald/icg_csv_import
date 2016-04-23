@@ -48,8 +48,8 @@ function icg_csv_access_callback($object) {
  */
 function icg_csv_import_fetch_OBJ($path) {
 
-  static $ftp_username = '*******';   // @TODO...credentials should be parameters
-  static $ftp_userpass = '*******';   // @TODO...update or REMOVE this! 
+  static $ftp_username = 'mcfatem';   // @TODO...credentials should be parameters
+  static $ftp_userpass = '*******';   // @TODO...update or REMOVE this!
 
   $module_name = basename(__FILE__, '.module');
 
