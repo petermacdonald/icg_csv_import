@@ -226,14 +226,16 @@ function icg_csv_import_import_line($line, &$context) {
  *
  * @param array() $headers - XPaths of destination fields
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
- * @param array() $controls - Process controls passed from the user interface. Elements include: 
+ * @param array() $controls - Process controls passed from the user interface. Elements mostly
+ *   from $form_state['all_values'] include:
  * 
- *   parent_pid
- *   namespace
- *   inactive
- *   history
- *   update
- *   transform
+ *   parent_pid @TODO - The PID of the parent collection
+ *   namespace - The namespace (no colon) to ingest new objects into
+ *   inactive - Indicator if the ingested objects are to be Active or Inactive
+ *   history - Name of the temporary file holding processed import history
+ *   update - Indicates if this process is updating a previous import (has history) or if objects are all new
+ *   transform  @TODO - The path to the defined XSLT transform to be applied to new MODS records
+ *   labelXPath  @TODO - The XPath to the data to be used as new object labels
  *
  * @return string|bool - The PID of the ingested object, or FALSE in case of an error
  */
