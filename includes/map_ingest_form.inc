@@ -41,62 +41,31 @@ function icg_csv_import_form_submit($form, &$form_state) {
   $form_state['all_values'] += $form_state['values'];
   # dpm($form_state);
 
-  // CSV file handler. I'm sure this could be done better.
-  if (isset($form_state['values']['csv_file'])) {
+  switch ($form_state['step']):
+    case 0:
+      // Save our current values to all_values.
+      $form_state['all_values'] += $form_state['values'];
+      // Do not submit the form
+      $form_state['rebuild'] = TRUE;
+      // Instead go to the next page.
+      $form_state['step']++;
+      break;
+    case 1:
+      // Save our crosswalk to all_values crosswalk.
+      $form_state['all_values']['crosswalk'] = $form_state['values'];
+      // Do not submit the form
+      $form_state['rebuild'] = TRUE;
+      // Instead go to the next page.
+      $form_state['step']++;
+      break;
+    case 2:
+      // Do something with all_values and redirect away from the form!
+      icg_csv_import_build_batch($form_state);
+      dpm($form_state);
+      break;
 
-    // File validation, upload and storage in temporary://.
-    $validators = array(
-      'file_validate_extensions' => array('csv txt'),
-      // @TODO set a file size limit?
-      // @TODO set mime/type?
-    );
-
-    $file =
-      file_save_upload('csv_file', $validators, FALSE, FILE_EXISTS_REPLACE);
-    if ($file) {
-      // drupal file object
-      $form_state['all_values']['csv_file'] = $file;
-    }
-    else {
-      form_set_error('csv_file', "A CSV file is required to continue.");
-    }
-  }
-
-  // Form multi-part 'handler'
-  if ($form_state['step'] != 0) {
-    // Do not submit the form
-    $form_state['rebuild'] = TRUE;
-    // Instead go to the next page.
-    $form_state['step']++;
-  }
-  else {
-
-    // Temporary code to have a look at the xml form data...
-    // dpm($form_state);
-    
-    module_load_include('inc', 'xml_form_api', 'XMLFormDefinition');
-    module_load_include('inc', 'xml_form_builder', 'XMLFormRepository');
-    $definition =
-      new XMLFormDefinition(XMLFormRepository::Get($form_state['all_values']['xml_form']));
-    $form_as_xml = $definition->createXMLDocument( );
-
-    $form_as_xml->formatOutput = true;
-    dsm($form_as_xml->saveXML(), 'status');
-
-    // $transform = $definition->getTransformFileName( );     // @TODO...not right!
-    // $form_state['all_values']['transform'] = $transform;
-
-    // $node = $definition->get()->documentElement;
-    // dpm($node);
-    // var_dump($node);
-    
-    //...end of Temporary code
-
-    // Build the batch process calls and get to it.
-    icg_csv_import_build_batch($form_state);
-  }
+  endswitch;
 }
-
 
 /**
  * @param $form
@@ -123,24 +92,26 @@ function icg_csv_import_form_ajax_callback($form, &$form_state) {
 function icg_csv_import_get_form($step, $collection, &$form_state) {
   $form = array();
 
+  // Since this is used frequently in here, we include it universally for each
+  // form part.
+  module_load_include('inc', 'icg_csv_import', 'includes/utilities');
+
   if (!isset($form_state['collection_policy'])) {
-    module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
     // This will throw an error if no CPOLICY.
-    $collection_info = 
+    $collection_info =
       _icg_csv_import_get_available_ingest_models($collection);
-    
+
     // Keep a copy in the form_state, we may need it later, else remove.
     $form_state['collection_policy'] = $collection_info;
 
-    // Temporary parent_pid saved in all_values; this will be validated.
-    $form_state['all_values']['parent_pid'] =
-      key($collection_info['namespaces']);
+    // Save parent PIDs.
+    $form_state['all_values']['parent_pid'] = ($collection->getParents());
   }
 
   switch ($step):
+
     case 0:
-      module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
       // This is unnecessary but it feels right.
       $content_models = $form_state['collection_policy']['models'];
@@ -167,7 +138,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#prefix' => '<div id="xml-dropdown-update">',
         '#suffix' => '</div>',
         '#description' => t('Lorem ipsum.'),
-        '#options' => _ajax_callback_xml_form($selected_cmodel, $xml_forms),
+        '#options' => _icg_ajax_callback_xml_form($selected_cmodel, $xml_forms),
       );
 
       $form['namespace'] = array(
@@ -176,13 +147,14 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#prefix' => '<div id="namespace-dropdown-update">',
         '#suffix' => '</div>',
         '#description' => t('Select an available destination namespace'),
-        '#options' => _ajax_callback_ns_form($selected_cmodel, $namespaces),
+        '#options' => _icg_ajax_callback_ns_form($selected_cmodel, $namespaces),
       );
 
       $form['csv_delimiter'] = array(
         '#type' => 'textfield',
         '#title' => t('CSV Field Delimiter'),
-        '#description' => t('Enter the character that separates fields in your CSV file.'),
+        '#description' => t('Enter the character that separates fields in 
+        your CSV file.'),
         '#size' => 10,
         '#required' => TRUE,
         '#default_value' => ',',
@@ -211,67 +183,47 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       break;
 
     case 1:
-
+      // Load our CSV parser.
       module_load_include('inc', 'icg_csv_import', 'includes/csv');
+
+      // Set some variables we know we'll end up using.
       $file = $form_state['all_values']['csv_file'];
       $delimit = $form_state['all_values']['csv_delimiter'];
+      $form_name = $form_state['all_values']['xml_form'];
 
+      // Parse our CSV file.
       // @TODO: ask JDP if this is correct CSV.inc use.
       $csv_prepared = icg_csv_load_csv_data($file->uri, $delimit);
       $csv_parsed = icg_csv_parse_csv_data($csv_prepared);
 
-      $mappable_headers = $csv_parsed[0];
+      // Create an array of options for our form. Include an 'ignore' option.
+      // @TODO: check with JDP if this is acceptable use of CSV array[0].
+      $mappable_options = array(NULL => 'Ignored Field',);
+      foreach ($csv_parsed[0] as $column_heading) {
+        $mappable_options[$column_heading] = $column_heading;
+      }
 
-      dpm($mappable_headers);
-//      foreach($mappable_headers as $header) {
-//        $form['header'][$header] = array(
-//          '#type' => 'select',
-//          '#title' => t('Words...'),
-//          '#options' => array($header),
-//        );
-//      }
+      // Grab the XML form the user selected as associated.
+      $xml_form = xml_form_builder_get_form($form, $form_state, $form_name);
 
-      module_load_include('inc', 'xml_form_api', 'XMLFormDefinition');
-      module_load_include('inc', 'xml_form_builder', 'XMLFormRepository');
+      // Make the form OURS! Change all textareas/textfields into selects and
+      // use our options array from above.
+      // Stand clear of the crazy iterator while in motion.
+      _icg_form_array_iterator_set_options($xml_form, $mappable_options);
 
-      $definition =
-        new XMLFormDefinition(XMLFormRepository::Get($form_state['all_values']['xml_form']));
-      $node = $definition->get()->documentElement;
-
-      var_dump($node);
-//      $child = $node->childNodes;
-//      foreach($child as $item) {
-//        if ($item->nodeType == XML_TEXT_NODE) {
-//          dpm($item->value);
-//        }
-//        else {
-//          if ($item->nodeType == XML_ELEMENT_NODE) {
-//            dpm($item->nodeName);
-//          }
-//        }
-//      }
-
-
-      // If $form state shows content model selected...
-      // Need to get this xml datastreams available for the selected content model
-      $datastreams = array();
-
-      $form['datastream'] = array(
-        '#type' => 'select',
-        '#title' => t('Select destination xml datastream'),
-        '#options' => array(),
-      );
+      $form = $xml_form;
 
       $form['submit'] = array(
         '#type' => 'submit',
-        '#value' => t('Next')
+        // This #value means I've lost my mind!
+        '#value' => t('BEEP BEEP BOOP BOOP')
       );
 
-      $form[] = $form;
       break;
 
     case 2:
-
+      // What was this page here for? Something probably.
+      
       $step3['submit'] = array(
         '#type' => 'submit',
         '#value' => t('Submit')
