@@ -51,10 +51,10 @@ function icg_csv_access_callback($object) {
 /**
  * Implements hook_fetch_OBJ.
  */
-function icg_csv_import_fetch_OBJ($path) {
+function icg_csv_import_fetch_OBJ($path, $credentials) {
 
-  static $ftp_username = 'mcfatem';   // @TODO...credentials should be parameters
-  static $ftp_userpass = '*******';   // @TODO...update or REMOVE this!
+  $ftp_username = $credentials['username']; 
+  $ftp_userpass = $credentials['password'];  
 
   $module_name = basename(__FILE__, '.module');
 
@@ -67,7 +67,7 @@ function icg_csv_import_fetch_OBJ($path) {
   // Set up a basic connection.
   $conn_id = ftp_ssl_connect($server, 21, 180);
   if (!$conn_id) {
-    watchdog($module_name, "FTP connection to server '%server' failed!", array('server' => $server), WATCHDOG_ERROR);
+    watchdog($module_name, "FTP connection to server '%server' failed!", array('%server' => $server), WATCHDOG_ERROR);
     return FALSE;
   }
 

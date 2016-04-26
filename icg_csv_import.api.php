@@ -10,14 +10,17 @@
  *
  * @param string $path
  *   The path to the file.
+ * @param array $credentials
+ *   'username' => The username to use for successful file transfer.
+ *   'password' => The corresponding password for file transfer.
  *
  * @return string 
  *   Path to a temporary, local copy of the target file.
  */
-function hook_fetch_OBJ($path) {
+function hook_fetch_OBJ($path, $credentials) {
 
-  static $ftp_username = 'mcfatem';   // @TODO...credentials should be parameters
-  static $ftp_userpass = '*******';   // @TODO...update or REMOVE this! 
+  $ftp_username = $credentials['username'];
+  $ftp_userpass = $credentials['password'];
 
   $module_name = basename(__FILE__, '.module');
 

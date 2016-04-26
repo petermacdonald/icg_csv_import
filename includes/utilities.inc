@@ -122,7 +122,7 @@ function _icg_form_array_iterator_set_options(&$array, $mappable_options) {
     && in_array($array['#type'], $manipulable_fields)) {
     $array['#type'] = 'select';
     $array['#options'] = $mappable_options;
-    // Do we want to append something to the description as help text?
+    // @TODO Do we want to append something to the description as help text?
   }
   else if (is_array($array)) {
     foreach($array as $key => &$value){

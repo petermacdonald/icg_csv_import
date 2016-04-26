@@ -17,8 +17,7 @@ function icg_csv_import_form($form, &$form_state, $collection) {
   // Build the form steps
   try {
     $step = $form_state['step'];
-    $current_form = icg_csv_import_get_form($step, $collection,
-      $form_state);
+    $current_form = icg_csv_import_get_form($step, $collection, $form_state);
   } catch (Exception $e) {
     drupal_set_message(t($e->getMessage()), 'error');
     return FALSE;
@@ -109,9 +108,18 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
     $form_state['all_values']['parent_pid'] = $collection->id;
   }
 
+  // If $form_state['values']['skip_field_mapping'] is TRUE,
+  // then skip $step 1 (form #1) and go straight to form #2.
+  // if (isset($form_state['values']['skip_field_mapping'])) {
+  //  if ($form_state['values']['skip_field_mapping'] && $step === 1) {
+  //    $form_state['step'] = ++$step;
+  //  }
+  // }
+
+  // Switch through the form $steps.
   switch ($step):
 
-    case 0:
+    case 0:    // The first form page... collect all control parameters.
 
       // This is unnecessary but it feels right.
       $content_models = $form_state['collection_policy']['models'];
@@ -175,17 +183,35 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#default_value' => TRUE,
       );
 
+      $form['skip_field_mapping'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('CSV first row already contains the field mapping?'),
+        '#description' => t('Check this box if the first row of your CSV file already contains mapped XPaths.'),
+        '#default_value' => FALSE,
+      );
+
+      $form['credentials_username'] = array(
+        '#type' => 'textfield',
+        '#title' => t('File Transfer Username'),
+        '#description' => t('Enter the username required to execute content file transfers.'),
+        '#size' => 20,
+        '#required' => FALSE,
+        '#default_value' => 'None',
+      );
+
+      $form['credentials_password'] = array(
+        '#type' => 'password',
+        '#title' => t('File Transfer Password'),
+        '#description' => t('Enter the password corresponding to username (above) to execute content file transfers.'),
+        '#size' => 20,
+        '#required' => FALSE,
+        '#default_value' => 'None',
+      );
+
       $form['ingest_as_inactive'] = array(
         '#type' => 'checkbox',
         '#title' => t('Ingest items as inactive?'),
         '#default_value' => TRUE,
-      );
-
-      $form['skip_field_mapping'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('CSV contains field mapping?'),
-        '#description' => t('Check this box if the first row of your CSV file already contains mapped XPaths.'),
-        '#default_value' => FALSE,
       );
 
       $form['submit'] = array(
@@ -195,10 +221,16 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
       break;
 
-    case 1:
-      
-      // If our CSV already contains XPaths in row 1... skip this field mapping step.
-      if (!$form_state['values']['skip_field_mapping']) {
+    case 1:     // Form page 2... Map CSV columns to metadata form elements.
+
+      // No mapping necessary...let the user know to proceed.
+      if ($form_state['values']['skip_field_mapping']) {
+
+        $form['message'] = array(
+          '#markup' => "<p>You have indicated that metadata XPaths are already mapped in the first row of the CSV file.  Click 'Next' to proceed.</p>",
+        );
+
+      } else {    // Map CSV columns to metadata form elements.
 
         // Load our CSV parser.
         module_load_include('inc', 'icg_csv_import', 'includes/csv');
@@ -230,17 +262,15 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
         $form = $xml_form;
       }
-      
+
       $form['submit'] = array(
         '#type' => 'submit',
-        // This #value means I've lost my mind!
-        '#value' => t('BEEP BEEP BOOP BOOP')
+        '#value' => t('Next')
       );
 
       break;
 
-    case 2:
-      // What was this page here for? Something probably.
+    case 2:     // What was this page here for? Something probably.  @TODO...maybe display the XPath map?
       
       $step3['submit'] = array(
         '#type' => 'submit',
@@ -249,6 +279,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
       $form[] = $step3;
       break;
+    
   endswitch;
 
   return $form;
@@ -268,12 +299,9 @@ function icg_csv_import_validate($form, &$form_state) {
   if (isset($file)) {
     // File upload was attempted.
     if ($file) {
-      // Put the temporary file in form_values so we can save it on submit.
-      $form_state['values']['csv_file'] = $file;
-    }
-    else {
-      // File upload failed.
-      form_set_error('icg_csv_import', t('The CSV file could not be uploaded.'));
+      $form_state['values']['csv_file'] = $file;  // Put the temporary file in $form_values so we can save it on submit.
+    } else {
+      form_set_error('icg_csv_import', t('The CSV file could not be uploaded.'));  // File upload failed.
     }
   }
 }

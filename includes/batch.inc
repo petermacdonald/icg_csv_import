@@ -255,6 +255,8 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
   $update = $controls['update'];
   // $transform = $controls['transform'];   // @TODO...not right in map_ingest_form.inc
   $transform = '/var/www/drupal/sites/all/modules/icg_csv_import/tests/data/mods_to_dc.xsl';
+  $credentials['username'] = $controls['credentials_username'];
+  $credentials['password'] = $controls['credentials_password'];
 
   $format = 'Y-m-d:H:i:s';
   $marker = date($format);
@@ -321,7 +323,7 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
   }
 
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
-  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj, $inactive)) {
+  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj, $credentials, $inactive)) {
     if ($update) {
       $record[0] = $pid;
     } else {
@@ -350,10 +352,13 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
  * Call any/all registered hook_fetch_OBJ functions.
  *
  * @param string $path - Path of the content (file) to fetch.
+ * @param array $credentials
+ *   'username' => The username to use for successful file transfer.
+ *   'password' => The corresponding password for file transfer.
  */
-function _fetch_OBJ($path) {
+function _fetch_OBJ($path, $credentials) {
   // Call all modules implementing 'hook_fetch_OBJ':
-  $return = module_invoke_all('fetch_OBJ', $path);
+  $return = module_invoke_all('fetch_OBJ', $path, $credentials);
   return $return[0];
 }
 
@@ -450,11 +455,14 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  * @param string $mods - The MODS record content as a string.
  * @param string $transform - Path to the MODS-to-DC transform xslt.
  * @param string $obj - The name of the file holding the OBJ datastream content.
+ * @param array $credentials
+ *   'username' => The username to use for successful file transfer.
+ *   'password' => The corresponding password for file transfer.
  * @param bool $inactive - TRUE if the object is to be made inactive.
  * 
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
-function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL, $inactive=FALSE) {
+function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL, $credentials=NULL, $inactive=FALSE) {
   $module_name = basename(__FILE__, '.module');
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
@@ -487,7 +495,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
   // If $obj is specified, fetch the file contents and make a new OBJ datastream for
   // $object from it.  @TODO...MIME type assumes image/jpeg!
   if ($obj) {
-    if ($temp = _fetch_OBJ($obj)) {
+    if ($temp = _fetch_OBJ($obj, $credentials)) {
       $dsid = 'OBJ';
       $datastream = $object->constructDatastream($dsid);
       $datastream->label = 'Object Content';
