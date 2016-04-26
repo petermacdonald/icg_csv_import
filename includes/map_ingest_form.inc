@@ -106,7 +106,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
     $form_state['collection_policy'] = $collection_info;
 
     // Save parent PIDs.
-    $form_state['all_values']['parent_pid'] = ($collection->getParents());
+    $form_state['all_values']['parent_pid'] = $collection->id;
   }
 
   switch ($step):
@@ -121,12 +121,15 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       $selected_cmodel = isset($form_state['values']['content_model']) ?
         $form_state['values']['content_model'] : key($content_models);
 
+      $form['#validate'][] = 'icg_csv_import_validate';
+
       $form['content_model'] = array(
         '#type' => 'select',
         '#title' => t('Destination Content Model'),
         '#description' => t('Select an available content model to ingest into.'),
         '#options' => $content_models,
         '#default_value' => $selected_cmodel,
+        '#required' => TRUE,
         '#ajax' => array(
           'callback' => 'icg_csv_import_form_ajax_callback',
         ),
@@ -138,6 +141,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#prefix' => '<div id="xml-dropdown-update">',
         '#suffix' => '</div>',
         '#description' => t('Lorem ipsum.'),
+        '#required' => TRUE,
         '#options' => _icg_ajax_callback_xml_form($selected_cmodel, $xml_forms),
       );
 
@@ -147,6 +151,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#prefix' => '<div id="namespace-dropdown-update">',
         '#suffix' => '</div>',
         '#description' => t('Select an available destination namespace'),
+        '#required' => TRUE,
         '#options' => _icg_ajax_callback_ns_form($selected_cmodel, $namespaces),
       );
 
@@ -160,19 +165,27 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#default_value' => ',',
       );
 
+      $form['csv_file'] = array(
+        '#name' => 'files[csv_file]',
+        '#type' => 'file',
+        '#title' => t('Select your CSV File.'),
+        '#description' => t('Allowed file types are .csv and .txt'),
+        '#size' => 200,
+        '#required' => TRUE,
+        '#default_value' => TRUE,
+      );
+
       $form['ingest_as_inactive'] = array(
         '#type' => 'checkbox',
         '#title' => t('Ingest items as inactive?'),
         '#default_value' => TRUE,
       );
 
-      $form['csv_file'] = array(
-        '#name' => 'files[csv_file]',
-        '#type' => 'file',
-        '#title' => t('Select your CSV File.'),
-        '#description' => t('Allowed file types are .csv and .txt'),
-        '#size' => 22,
-        '#default_value' => TRUE,
+      $form['skip_field_mapping'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('CSV contains field mapping?'),
+        '#description' => t('Check this box if the first row of your CSV file already contains mapped XPaths.'),
+        '#default_value' => FALSE,
       );
 
       $form['submit'] = array(
@@ -183,36 +196,41 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       break;
 
     case 1:
-      // Load our CSV parser.
-      module_load_include('inc', 'icg_csv_import', 'includes/csv');
+      
+      // If our CSV already contains XPaths in row 1... skip this field mapping step.
+      if (!$form_state['values']['skip_field_mapping']) {
 
-      // Set some variables we know we'll end up using.
-      $file = $form_state['all_values']['csv_file'];
-      $delimit = $form_state['all_values']['csv_delimiter'];
-      $form_name = $form_state['all_values']['xml_form'];
+        // Load our CSV parser.
+        module_load_include('inc', 'icg_csv_import', 'includes/csv');
 
-      // Parse our CSV file.
-      // @TODO: ask JDP if this is correct CSV.inc use.
-      $csv_prepared = icg_csv_load_csv_data($file->uri, $delimit);
-      $csv_parsed = icg_csv_parse_csv_data($csv_prepared);
+        // Set some variables we know we'll end up using.
+        $file = $form_state['all_values']['csv_file'];
+        $delimit = $form_state['all_values']['csv_delimiter'];
+        $form_name = $form_state['all_values']['xml_form'];
 
-      // Create an array of options for our form. Include an 'ignore' option.
-      // @TODO: check with JDP if this is acceptable use of CSV array[0].
-      $mappable_options = array(NULL => 'Ignored Field',);
-      foreach ($csv_parsed[0] as $column_heading) {
-        $mappable_options[$column_heading] = $column_heading;
+        // Parse our CSV file.
+        // @TODO: ask JDP if this is correct CSV.inc use.
+        $csv_prepared = icg_csv_load_csv_data($file->uri, $delimit);
+        $csv_parsed = icg_csv_parse_csv_data($csv_prepared);
+
+        // Create an array of options for our form. Include an 'ignore' option.
+        // @TODO: check with JDP if this is acceptable use of CSV array[0].
+        $mappable_options = array(NULL => 'Ignored Field',);
+        foreach ($csv_parsed[0] as $column_heading) {
+          $mappable_options[$column_heading] = $column_heading;
+        }
+
+        // Grab the XML form the user selected as associated.
+        $xml_form = xml_form_builder_get_form($form, $form_state, $form_name);
+
+        // Make the form OURS! Change all textareas/textfields into selects and
+        // use our options array from above.
+        // Stand clear of the crazy iterator while in motion.
+        _icg_form_array_iterator_set_options($xml_form, $mappable_options);
+
+        $form = $xml_form;
       }
-
-      // Grab the XML form the user selected as associated.
-      $xml_form = xml_form_builder_get_form($form, $form_state, $form_name);
-
-      // Make the form OURS! Change all textareas/textfields into selects and
-      // use our options array from above.
-      // Stand clear of the crazy iterator while in motion.
-      _icg_form_array_iterator_set_options($xml_form, $mappable_options);
-
-      $form = $xml_form;
-
+      
       $form['submit'] = array(
         '#type' => 'submit',
         // This #value means I've lost my mind!
@@ -234,4 +252,28 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
   endswitch;
 
   return $form;
+}
+
+/**
+ * Form validation handler.
+ * 
+ * @param $form
+ * @param $form_state
+ */
+function icg_csv_import_validate($form, &$form_state) {
+  $validators = array('file_validate_extensions' => array('csv txt'));
+
+  // Check for a new uploaded CSV.
+  $file = file_save_upload('csv_file', $validators);
+  if (isset($file)) {
+    // File upload was attempted.
+    if ($file) {
+      // Put the temporary file in form_values so we can save it on submit.
+      $form_state['values']['csv_file'] = $file;
+    }
+    else {
+      // File upload failed.
+      form_set_error('icg_csv_import', t('The CSV file could not be uploaded.'));
+    }
+  }
 }

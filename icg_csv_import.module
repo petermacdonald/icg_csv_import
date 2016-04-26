@@ -5,6 +5,11 @@
  */
 function icg_csv_import_init( ) {
   module_load_include('inc', 'icg_csv_import', 'includes/batch');
+  
+  // Turn on error reporting.
+  error_reporting(E_ALL);
+  ini_set('display_errors', TRUE);
+  ini_set('display_startup_errors', TRUE);
 }
 
 /**

@@ -88,7 +88,11 @@ function icg_csv_import_build_batch($form_state) {
   ini_set('auto_detect_line_endings', TRUE);
   
   if ($handle = fopen($csv_filename, 'r')) {
-    $headers = fgetcsv($handle);                 // first line is $headers
+    if ($form_state['all_values']['skip_field_mapping']) {
+      $headers = fgetcsv($handle);   // first line is $headers
+    } else {
+      $headers = $form_state['all_values']['crosswalk'];  // get $headers from the crosswalk
+    }
 
     $format = 'Y-m-d:H:i:s';
     $marker = date($format);
@@ -123,9 +127,9 @@ function icg_csv_import_build_batch($form_state) {
     fputcsv($fp, $record);
     fclose($fp);
 
-    // Get the parent_pid parameter and save it.
-    $parent_pid = $form_state['build_info']['args'][0]->id;
-    $form_state['all_values']['parent_pid'] = $parent_pid;
+    // Get the parent_pid parameter and save it.  @TODO...remove, no longer needed
+    // $parent_pid = $form_state['build_info']['args'][0]->id;
+    // $form_state['all_values']['parent_pid'] = $parent_pid;
 
     // First batch operation...save key parameters
     $form_state['all_values']['history'] = $history;
@@ -187,7 +191,6 @@ function icg_csv_import_import_finished($success, $results, $operations) {
  *
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
  *
- * @TODO is there a better way to pass a value from inception of the batch to the finished function?
  */
 function icg_csv_import_remember($filename, $parameters, $headers, &$context) {
   $context['results']['uploaded_filename'] = $filename;
@@ -229,7 +232,7 @@ function icg_csv_import_import_line($line, &$context) {
  * @param array() $controls - Process controls passed from the user interface. Elements mostly
  *   from $form_state['all_values'] include:
  * 
- *   parent_pid @TODO - The PID of the parent collection
+ *   parent_pid - The PID of the parent collection
  *   namespace - The namespace (no colon) to ingest new objects into
  *   inactive - Indicator if the ingested objects are to be Active or Inactive
  *   history - Name of the temporary file holding processed import history
@@ -318,7 +321,7 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
   }
 
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
-  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj)) {
+  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj, $inactive)) {
     if ($update) {
       $record[0] = $pid;
     } else {
@@ -447,10 +450,11 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  * @param string $mods - The MODS record content as a string.
  * @param string $transform - Path to the MODS-to-DC transform xslt.
  * @param string $obj - The name of the file holding the OBJ datastream content.
+ * @param bool $inactive - TRUE if the object is to be made inactive.
  * 
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
-function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL) {
+function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL, $inactive=FALSE) {
   $module_name = basename(__FILE__, '.module');
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
@@ -519,6 +523,13 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
   // OK, my hook_CMODEL_PID_islandora_object_ingested function is NOT firing!  So
   // take the bull by the horns here.  
   _make_derivatives($object);
+
+  // Now, if the object is to be "inactive", set it so.
+  if ($inactive) {
+    $api_m = $object->repository->api->m;
+    $owner = $object->owner;
+    $timestamp = $api_m->modifyObject($pid, "I", $owner, "Object set inactive via CSV import.");
+  }
 
   return $pid;
 }
