@@ -222,7 +222,26 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       break;
 
     case 1:     // Form page 2... Map CSV columns to metadata form elements.
-
+      
+      // A metadata form has been selected.  Fetch it's title and add it's data array to
+      // $form_state['collection_policy']['selected']
+      $selected_form = $form_state['all_values']['xml_form'];
+      $cmodel = $form_state['all_values']['content_model'];
+      $forms = $form_state['collection_policy']['forms'][$cmodel];
+      foreach($forms as $fdata) {
+        if ($fdata['form_name'] === $selected_form) {
+          $form_state['collection_policy']['selected'] = $fdata;
+          $path = drupal_get_path('module', 'xml_form_builder');
+          $form_state['all_values']['transform'] = $path.'/transforms/'.$fdata['transform'];
+          $label_field = '/mods';
+          foreach($fdata['title_field'] as $tfield) {
+            $label_field .= '/'.$tfield;
+          }
+          $form_state['all_values']['label_field'] = $label_field;
+          break;
+        }
+      }  
+      
       // No mapping necessary...let the user know to proceed.
       if ($form_state['values']['skip_field_mapping']) {
 

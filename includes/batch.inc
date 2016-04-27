@@ -246,15 +246,14 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
   $module_name = basename(__FILE__, '.module');
   static $temporary = '/tmp';
   static $MODS = '/templates/MODS.xml';
-  static $labelXPath = '/mods/titleInfo/title';   // @TODO...make this a parameter!
 
   $parent_pid = $controls['parent_pid'];
   $namespace = $controls['namespace'];
   $inactive = $controls['ingest_as_inactive'];
   $history = $controls['history'];
   $update = $controls['update'];
-  // $transform = $controls['transform'];   // @TODO...not right in map_ingest_form.inc
-  $transform = '/var/www/drupal/sites/all/modules/icg_csv_import/tests/data/mods_to_dc.xsl';
+  $transform = $controls['transform'];   
+  $labelXPath = $controls['label_field'];
   $credentials['username'] = $controls['credentials_username'];
   $credentials['password'] = $controls['credentials_password'];
 
