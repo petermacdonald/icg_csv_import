@@ -2,6 +2,7 @@
 
 /**
  * CSV Import Form Callback
+ * 
  * @param $form
  * @param $form_state
  * @param $collection
@@ -96,25 +97,14 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
   module_load_include('inc', 'icg_csv_import', 'includes/utilities');
 
   if (!isset($form_state['collection_policy'])) {
-
     // This will throw an error if no CPOLICY.
     $collection_info =
       _icg_csv_import_get_available_ingest_models($collection);
-
     // Keep a copy in the form_state, we may need it later, else remove.
     $form_state['collection_policy'] = $collection_info;
-
     // Save parent PIDs.
     $form_state['all_values']['parent_pid'] = $collection->id;
   }
-
-  // If $form_state['values']['skip_field_mapping'] is TRUE,
-  // then skip $step 1 (form #1) and go straight to form #2.
-  // if (isset($form_state['values']['skip_field_mapping'])) {
-  //  if ($form_state['values']['skip_field_mapping'] && $step === 1) {
-  //    $form_state['step'] = ++$step;
-  //  }
-  // }
 
   // Switch through the form $steps.
   switch ($step):
