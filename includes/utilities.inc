@@ -106,29 +106,112 @@ function _icg_ajax_callback_ns_form($selected_cmodel, $namespaces) {
 /**
  * Iterates through a form array and replaces specific fields and their options.
  *
- * @param array $array
- * @param array $mappable_options
- *
- * This function needs more comments than 0, what the heck was I thinking?
+ * @param $form - The metadata form as an object.
+ * @param array $array - The metdata form as an array.
+ * @param array $mappable_options - The vector of CSV data to map.
+ * @param string $form_name - The metadata form name (or NULL if called from within).
+ * 
+ * @return array - Corresponding XPaths.  @TODO
  */
-function _icg_form_array_iterator_set_options(&$array, $mappable_options) {
-  $manipulable_fields = array(
+function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options, $form_name=NULL) {
+  static $xpaths = array( );
+  static $position;
+  
+  static $manipulable_fields = array(
     'textfield',
     'textarea',
     'tags',
   );
 
-  if(isset($array['#type'])
-    && in_array($array['#type'], $manipulable_fields)) {
+  // On the first call to this function $form_name should be provided, so use it
+  // to fetch all possible xpaths. 
+  if (isset($form_name)) {
+    $xpaths = _icg_csv_import_get_xpaths($form_name, $array);
+    $position = 0;
+  } 
+  
+  /* @TODO 
+   * There is a disconnect here between $xpaths and $form and I haven't been
+   * able to determine how to associate elements of $form with their corresponding
+   * xpath representations.  Simply tracking $position does not work since there's
+   * not a one-to-one correspondence between $xpaths and elements.  For example, $xpaths
+   * contains:
+   * 
+   *    /mods/titleInfo
+   *    /mods/titleInfo/title
+   * 
+   * But /mods/titleInfo is NOT represented by any $form element because only its child,
+   * /mods/titleInfo/title is.
+   * 
+   */
+    
+  // If this branch of the form is a manipulable field...
+  if (isset($array['#type']) && in_array($array['#type'], $manipulable_fields)) {
     $array['#type'] = 'select';
     $array['#options'] = $mappable_options;
-    // @TODO Do we want to append something to the description as help text?
+    $array['#description'] = 'This field is mapped to postion ' . ++$position . 
+      ' with an XPath of: ' . $xpaths[$position] . '.';
+    $title = $array['#title'];
+
+    // Add a field for addition of an optional constant.
+    $array[$title . '- constant'] = array(
+      '#title' => $title . '-CONST',
+      '#description' => 'Enter your constant value for this field',
+      '#type' => 'textfield',
+      '#states' => array(
+        'invisible' => array(
+          'input[name='.$title.']' => array('value' => 'USE_CONSTANT',),
+          ),
+        ),
+      );
   }
+  
+  // This branch of the form (tree) is not a manipulable field, break it down further
   else if (is_array($array)) {
     foreach($array as $key => &$value){
       if (isset($value) && is_array($value)) {
-        _icg_form_array_iterator_set_options($value, $mappable_options);
+        _icg_form_array_iterator_set_options($form, $value, $mappable_options);
       }
     }
   }
+  
+  return;
 }
+
+
+// This is a modified copy of function xml_form_builder_get_title_options($form_name) 
+function _icg_csv_import_get_xpaths($form_name) {
+  if (isset($form_name)) {
+    module_load_include('inc', 'xml_form_builder', 'XMLFormRepository');
+    $doc = XMLFormRepository::Get($form_name);  // This is a DOMDocument representation of the form
+
+    if ($doc) {
+      $xpath = new DOMXPath($doc);
+      $result = $xpath->query('//element[@name]');
+      // $result = $xpath->query('//element[@name] | //@*');   // failed attempt to get attributes
+      $elements = dom_node_list_to_array($result);   // a mix of DOMElement and DOMAttr nodes
+      if (count($elements) > 0) {
+        $output = array( );
+        foreach ($elements as $element) {
+          $result = $xpath->query('ancestor-or-self::node()[@name]', $element);
+          $ancestors = dom_node_list_to_array($result);
+          $ancestors_array = array();
+          if (count($ancestors) > 0) {
+            foreach ($ancestors as $ancestor) {
+              $name = $ancestor->getAttribute('name');
+              $ancestors_array[] = (string) $name;
+            }
+          }
+          $x = "/mods/" . implode('/', $ancestors_array);
+          $output[] = str_replace('/0', '[0]', $x);
+        }
+        return $output;
+      }
+    }
+  }
+  return array(NULL => t('Metadata Form Not Found!'));
+}
+
+
+// a DOMElement
+

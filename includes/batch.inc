@@ -85,7 +85,6 @@ function icg_csv_import_build_batch($form_state) {
   ) ;
 
   $csv_filename = $form_state['all_values']['csv_file']->uri;
-  ini_set('auto_detect_line_endings', TRUE);
   
   if ($handle = fopen($csv_filename, 'r')) {
     if ($form_state['all_values']['skip_field_mapping']) {

@@ -95,6 +95,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
   // Since this is used frequently in here, we include it universally for each
   // form part.
   module_load_include('inc', 'icg_csv_import', 'includes/utilities');
+  module_load_include('inc', 'xml_forms', 'builder/includes/associations.form');
 
   if (!isset($form_state['collection_policy'])) {
     // This will throw an error if no CPOLICY.
@@ -256,7 +257,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
         // Create an array of options for our form. Include an 'ignore' option.
         // @TODO: check with JDP if this is acceptable use of CSV array[0].
-        $mappable_options = array(NULL => 'Ignored Field',);
+        $mappable_options = array(NULL => 'Ignored Field', "USE_CONSTANT" => 'Enter a constant value...',);
         foreach ($csv_parsed[0] as $column_heading) {
           $mappable_options[$column_heading] = $column_heading;
         }
@@ -267,7 +268,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         // Make the form OURS! Change all textareas/textfields into selects and
         // use our options array from above.
         // Stand clear of the crazy iterator while in motion.
-        _icg_form_array_iterator_set_options($xml_form, $mappable_options);
+        $xpaths = _icg_form_array_iterator_set_options($xml_form, $xml_form, $mappable_options, $form_name);
 
         $form = $xml_form;
       }

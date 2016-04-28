@@ -10,6 +10,9 @@ function icg_csv_import_init( ) {
   error_reporting(E_ALL);
   ini_set('display_errors', TRUE);
   ini_set('display_startup_errors', TRUE);
+
+  // Explicitly set auto detection of line endings by PHP!
+  ini_set('auto_detect_line_endings', TRUE);
 }
 
 /**
