@@ -127,7 +127,6 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
   // to fetch all possible xpaths. 
   if (isset($form_name)) {
     $xpaths = _icg_csv_import_get_xpaths($form_name, $array);
-    $position = 0;
   } 
   
   /* @TODO 
@@ -147,11 +146,10 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
     
   // If this branch of the form is a manipulable field...
   if (isset($array['#type']) && in_array($array['#type'], $manipulable_fields)) {
+    $title = $array['#title'];
     $array['#type'] = 'select';
     $array['#options'] = $mappable_options;
-    $array['#description'] = 'This field is mapped to postion ' . ++$position . 
-      ' with an XPath of: ' . $xpaths[$position] . '.';
-    $title = $array['#title'];
+    $array['#description'] = 'This field is mapped to ' . $xpaths[$title] . '.';
 
     // Add a field for addition of an optional constant.
     $array[$title . '- constant'] = array(
@@ -193,6 +191,17 @@ function _icg_csv_import_get_xpaths($form_name) {
       if (count($elements) > 0) {
         $output = array( );
         foreach ($elements as $element) {
+          $element_title = NULL;
+          $debugXML = $element->ownerDocument->saveXML($element);
+
+          $properties = $element->getElementsByTagName('properties');
+          foreach ($properties as $prop) {
+            $titles = $prop->getElementsByTagName('title');
+            foreach ($titles as $title) {
+              $element_title = $title->nodeValue;       // there should be only one
+            }
+          }
+
           $result = $xpath->query('ancestor-or-self::node()[@name]', $element);
           $ancestors = dom_node_list_to_array($result);
           $ancestors_array = array();
@@ -203,7 +212,7 @@ function _icg_csv_import_get_xpaths($form_name) {
             }
           }
           $x = "/mods/" . implode('/', $ancestors_array);
-          $output[] = str_replace('/0', '[0]', $x);
+          $output[$element_title] = str_replace('/0', '[0]', $x);
         }
         return $output;
       }
