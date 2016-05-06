@@ -107,16 +107,16 @@ function _icg_ajax_callback_ns_form($selected_cmodel, $namespaces) {
  * Iterates through a form array and replaces specific fields and their options.
  *
  * @param $form - The metadata form as an object.
- * @param array $array - The metdata form as an array.
+ * @param array $array - The metadata form as an array.
  * @param array $mappable_options - The vector of CSV data to map.
  * @param string $form_name - The metadata form name (or NULL if called from within).
- * 
+ *
  * @return array - Corresponding XPaths.  @TODO
  */
 function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options, $form_name=NULL) {
   static $xpaths = array( );
   static $position;
-  
+
   static $manipulable_fields = array(
     'textfield',
     'textarea',
@@ -127,43 +127,16 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
   // to fetch all possible xpaths. 
   if (isset($form_name)) {
     $xpaths = _icg_csv_import_get_xpaths($form_name, $array);
-  } 
-  
-  /* @TODO 
-   * There is a disconnect here between $xpaths and $form and I haven't been
-   * able to determine how to associate elements of $form with their corresponding
-   * xpath representations.  Simply tracking $position does not work since there's
-   * not a one-to-one correspondence between $xpaths and elements.  For example, $xpaths
-   * contains:
-   * 
-   *    /mods/titleInfo
-   *    /mods/titleInfo/title
-   * 
-   * But /mods/titleInfo is NOT represented by any $form element because only its child,
-   * /mods/titleInfo/title is.
-   * 
-   */
-    
+  }
+
   // If this branch of the form is a manipulable field...
   if (isset($array['#type']) && in_array($array['#type'], $manipulable_fields)) {
     $title = $array['#title'];
     $array['#type'] = 'select';
     $array['#options'] = $mappable_options;
-    $array['#description'] = 'This field is mapped to ' . $xpaths[$title] . '.';
-
-    // Add a field for addition of an optional constant.
-    $array[$title . '- constant'] = array(
-      '#title' => $title . '-CONST',
-      '#description' => 'Enter your constant value for this field',
-      '#type' => 'textfield',
-      '#states' => array(
-        'invisible' => array(
-          'input[name='.$title.']' => array('value' => 'USE_CONSTANT',),
-          ),
-        ),
-      );
+    $array['#description'] = 'This field will map to <b>' . $xpaths[$title] . '</b>.';
   }
-  
+
   // This branch of the form (tree) is not a manipulable field, break it down further
   else if (is_array($array)) {
     foreach($array as $key => &$value){
@@ -172,12 +145,17 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
       }
     }
   }
-  
-  return;
+
+  return $xpaths;
 }
 
 
-// This is a modified copy of function xml_form_builder_get_title_options($form_name) 
+/**
+ * This is a modified copy of function xml_form_builder_get_title_options($form_name)
+ *
+ * @param $form_name
+ * @return array
+ */
 function _icg_csv_import_get_xpaths($form_name) {
   if (isset($form_name)) {
     module_load_include('inc', 'xml_form_builder', 'XMLFormRepository');
@@ -190,30 +168,30 @@ function _icg_csv_import_get_xpaths($form_name) {
       $elements = dom_node_list_to_array($result);   // a mix of DOMElement and DOMAttr nodes
       if (count($elements) > 0) {
         $output = array( );
+
         foreach ($elements as $element) {
-          $element_title = NULL;
           $debugXML = $element->ownerDocument->saveXML($element);
-
-          $properties = $element->getElementsByTagName('properties');
-          foreach ($properties as $prop) {
-            $titles = $prop->getElementsByTagName('title');
-            foreach ($titles as $title) {
-              $element_title = $title->nodeValue;       // there should be only one
-            }
-          }
-
+          $test = $xpath->evaluate(
+            'ancestor-or-self::node()[@name]/properties/type[text()="textfield" or text()="select" or text()="textarea"]', $element);
+          if ($test->length === 0) { continue; }
           $result = $xpath->query('ancestor-or-self::node()[@name]', $element);
           $ancestors = dom_node_list_to_array($result);
           $ancestors_array = array();
+
           if (count($ancestors) > 0) {
             foreach ($ancestors as $ancestor) {
               $name = $ancestor->getAttribute('name');
+              // Does thi $ancestor have an enumerator?
               $ancestors_array[] = (string) $name;
             }
           }
+
           $x = "/mods/" . implode('/', $ancestors_array);
-          $output[$element_title] = str_replace('/0', '[0]', $x);
+          $val = str_replace('/0', '[x]', $x);
+          $branch = _icg_csv_import_build_branch($ancestors_array, $val);
+          $output = array_merge_recursive($output, $branch);
         }
+        $result = array_walk_recursive($output, '_icg_csv_import_x_to_0');
         return $output;
       }
     }
@@ -221,6 +199,53 @@ function _icg_csv_import_get_xpaths($form_name) {
   return array(NULL => t('Metadata Form Not Found!'));
 }
 
+/**
+ * @param array $a - Ordered array of ancestor elements.
+ * @param string $xp - Corresponding xpath.
+ */
+function _icg_csv_import_build_branch($anc, $xp) {
+  $a = array( );
+  $n = count($anc);
 
-// a DOMElement
+  foreach ($anc as $key => $value) {
+    if ($value === "0") {
+      $a[$key] = 'x';
+    } else {
+      $a[$key] = $value;
+    }
+  }
+
+  switch ($n) {
+    case 5:
+      $branch[$a[0]] = array($a[1] => array($a[2] => array($a[3] => array($a[4] => $xp))));
+      break;
+    case 4:
+      $branch[$a[0]] = array($a[1] => array($a[2] => array($a[3] => $xp)));
+      break;
+    case 3:
+      $branch[$a[0]] = array($a[1] => array($a[2] => $xp));
+      break;
+    case 2:
+      $branch[$a[0]] = array($a[1] => $xp);
+      break;
+    case 1:
+      $branch[$a[0]] = $xp;
+      break;
+  }
+
+  return $branch;
+}
+
+/**
+ * @param $val
+ * @param $key
+ * @return bool
+ */
+function _icg_csv_import_x_to_0($val, &$key) {
+  if ($key === 'x') { $key = '0'; }
+  return TRUE;
+}
+
+
+
 

@@ -51,12 +51,26 @@ function icg_csv_import_form_submit($form, &$form_state) {
       $form_state['step']++;
       break;
     case 1:
+      # http://stackoverflow.com/questions/1019076/how-to-search-by-key-value-in-a-multidimensional-array-in-php
+      $arrIt = new RecursiveIteratorIterator(new RecursiveArrayIterator($form));
+
+      foreach ($form_state['all_values']['xpaths'] as $key => $value) {
+        foreach ($arrIt as $sub) {
+          $subArray = $arrIt->getSubIterator();
+          if ($subArray['#title'] === $key) {
+            $subA = iterator_to_array($subArray);
+            $form_state['all_values']['crosswalk'][$key] = $subA['#value'];
+          }
+        }
+      }
+      
       // Save our crosswalk to all_values crosswalk.
-      $form_state['all_values']['crosswalk'] = $form_state['values'];
+      // $form_state['all_values']['crosswalk'] = $form_state['values'];
       // Do not submit the form
       $form_state['rebuild'] = TRUE;
       // Instead go to the next page.
       $form_state['step']++;
+      dpm($form_state);
       break;
     case 2:
       // Do something with all_values and redirect away from the form!
@@ -269,6 +283,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         // use our options array from above.
         // Stand clear of the crazy iterator while in motion.
         $xpaths = _icg_form_array_iterator_set_options($xml_form, $xml_form, $mappable_options, $form_name);
+        $form_state['all_values']['xpaths'] = $xpaths;
 
         $form = $xml_form;
       }
@@ -281,7 +296,37 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       break;
 
     case 2:     // What was this page here for? Something probably.  @TODO...maybe display the XPath map?
-      
+
+      // Step 2 is complete...build the $step3 form from the step 2 input!
+
+      // dpm($form_state['all_values']);
+      $merged = array_merge_recursive( $form_state['all_values']['xpaths'], $form_state['values']);
+      dpm($merged);
+
+      foreach ($form_state['all_values']['xpaths'] as $t => $x) {
+        $step3[$t] = array(
+          '#type' => 'textfield',
+          '#title' => $t,
+          '#prefix' => '<div class="form_row"><tr><td>',
+          '#suffix' => '</td>',
+          '#description' => t('Xpath'),
+          '#size' => 40,
+          '#required' => FALSE,
+          '#default_value' => $x,
+        );
+
+        $step3[$t.' constant'] = array(
+          '#type' => 'textfield',
+          '#prefix' => '<td>',
+          '#suffix' => '</td></tr></div>',
+          '#description' => t('Constant'),
+          '#size' => 20,
+          '#required' => FALSE,
+          '#default_value' => '',
+        );
+
+      }
+
       $step3['submit'] = array(
         '#type' => 'submit',
         '#value' => t('Submit')
@@ -315,3 +360,4 @@ function icg_csv_import_validate($form, &$form_state) {
     }
   }
 }
+
