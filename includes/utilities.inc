@@ -154,14 +154,22 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
  * This is a modified copy of function xml_form_builder_get_title_options($form_name)
  *
  * @param $form_name
+ * @param $form
  * @return array
  */
-function _icg_csv_import_get_xpaths($form_name) {
+function _icg_csv_import_get_xpaths($form_name, $form) {
+
+  // Traverse through the the $hashes copy of $form and find all the element #hash values.
+  $hashes = $form;
+  _icg_csv_import_gather_hashes($hashes);
+
+  // Now load and process the $form, using $form_name, to build an array of corresponding xpaths.
   if (isset($form_name)) {
     module_load_include('inc', 'xml_form_builder', 'XMLFormRepository');
     $doc = XMLFormRepository::Get($form_name);  // This is a DOMDocument representation of the form
 
     if ($doc) {
+      $debugXML = $doc->saveXML($doc);
       $xpath = new DOMXPath($doc);
       $result = $xpath->query('//element[@name]');
       // $result = $xpath->query('//element[@name] | //@*');   // failed attempt to get attributes
@@ -181,7 +189,7 @@ function _icg_csv_import_get_xpaths($form_name) {
           if (count($ancestors) > 0) {
             foreach ($ancestors as $ancestor) {
               $name = $ancestor->getAttribute('name');
-              // Does thi $ancestor have an enumerator?
+              // Does this $ancestor have an enumerator?
               $ancestors_array[] = (string) $name;
             }
           }
@@ -191,7 +199,7 @@ function _icg_csv_import_get_xpaths($form_name) {
           $branch = _icg_csv_import_build_branch($ancestors_array, $val);
           $output = array_merge_recursive($output, $branch);
         }
-        $result = array_walk_recursive($output, '_icg_csv_import_x_to_0');
+        // $result = array_walk_recursive($output, '_icg_csv_import_x_to_0');
         return $output;
       }
     }
@@ -240,10 +248,25 @@ function _icg_csv_import_build_branch($anc, $xp) {
  * @param $val
  * @param $key
  * @return bool
- */
+ *
 function _icg_csv_import_x_to_0($val, &$key) {
   if ($key === 'x') { $key = '0'; }
   return TRUE;
+} */
+
+/**
+ * Remove all but the #hash key/value pairs from $array.
+ *
+ * @param array $array - The $form, or branch of the $form, as an array.
+ */
+function _icg_csv_import_gather_hashes(&$array) {
+  foreach ($array as $key => &$value) {
+    if (is_array($value)) {
+      _icg_csv_import_gather_hashes($value);
+    } else if ($key != '#hash') {
+      unset($array[$key]);
+    }
+  }
 }
 
 
