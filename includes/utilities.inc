@@ -134,7 +134,14 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
     $title = $array['#title'];
     $array['#type'] = 'select';
     $array['#options'] = $mappable_options;
-    $array['#description'] = 'This field will map to <b>' . $xpaths[$title] . '</b>.';
+ 
+    $hash = $array['#hash'];
+    if (!$found = _icg_csv_import_recursive_array_search($xpaths, '#hash', $hash)) {
+      dsm("Error - Could not find #hash => '$hash' for form element '$title' in the XPaths array.", 'error');
+    } else {
+      $xp = $found[0]['xpath'];
+      $array['#description'] = 'This field will map to <b>' . $xp . '</b>.';
+    }
   }
 
   // This branch of the form (tree) is not a manipulable field, break it down further
@@ -162,6 +169,8 @@ function _icg_csv_import_get_xpaths($form_name, $form) {
   // Traverse through the the $hashes copy of $form and find all the element #hash values.
   $hashes = $form;
   _icg_csv_import_gather_hashes($hashes);
+  _icg_csv_import_convert_array_keys($hashes, '0', 'x');
+  _icg_csv_import_remove_numeric_keys($hashes);
 
   // Now load and process the $form, using $form_name, to build an array of corresponding xpaths.
   if (isset($form_name)) {
@@ -199,7 +208,10 @@ function _icg_csv_import_get_xpaths($form_name, $form) {
           $branch = _icg_csv_import_build_branch($ancestors_array, $val);
           $output = array_merge_recursive($output, $branch);
         }
-        // $result = array_walk_recursive($output, '_icg_csv_import_x_to_0');
+        $output = array_merge_recursive($output, $hashes);
+        _icg_csv_import_convert_array_keys($output, '0', 'xpath');
+        _icg_csv_import_remove_numeric_keys($output);
+
         return $output;
       }
     }
@@ -211,17 +223,8 @@ function _icg_csv_import_get_xpaths($form_name, $form) {
  * @param array $a - Ordered array of ancestor elements.
  * @param string $xp - Corresponding xpath.
  */
-function _icg_csv_import_build_branch($anc, $xp) {
-  $a = array( );
-  $n = count($anc);
-
-  foreach ($anc as $key => $value) {
-    if ($value === "0") {
-      $a[$key] = 'x';
-    } else {
-      $a[$key] = $value;
-    }
-  }
+function _icg_csv_import_build_branch($a, $xp) {
+  $n = count($a);
 
   switch ($n) {
     case 5:
@@ -241,18 +244,11 @@ function _icg_csv_import_build_branch($anc, $xp) {
       break;
   }
 
+  _icg_csv_import_convert_array_keys($branch, '0', 'x');
+  _icg_csv_import_remove_numeric_keys($branch);
+
   return $branch;
 }
-
-/**
- * @param $val
- * @param $key
- * @return bool
- *
-function _icg_csv_import_x_to_0($val, &$key) {
-  if ($key === 'x') { $key = '0'; }
-  return TRUE;
-} */
 
 /**
  * Remove all but the #hash key/value pairs from $array.
@@ -260,15 +256,76 @@ function _icg_csv_import_x_to_0($val, &$key) {
  * @param array $array - The $form, or branch of the $form, as an array.
  */
 function _icg_csv_import_gather_hashes(&$array) {
+  static $toss = array( '#actions', '#options' );
   foreach ($array as $key => &$value) {
-    if (is_array($value)) {
+    if (in_array($key, $toss, TRUE)) {   // toss out unneded arrays
+      unset($array[$key]);
+    } else if (is_array($value)) {  // traverse into all remaining arrays
       _icg_csv_import_gather_hashes($value);
-    } else if ($key != '#hash') {
+    } else if ($key != '#hash') {  // found a key/value pair and the key is not #hash, toss it
       unset($array[$key]);
     }
   }
+  return;
 }
 
 
+function _icg_csv_import_convert_array_keys(&$array, $find, $replace) {
+  foreach ($array as $key => &$value) {
+    // Change $find to $replace
+    if ($key == $find) {
+      $array[$replace] = $value;
+    }
 
+    // Recurse into the tree branch
+    if (is_array($value)) {
+      _icg_csv_import_convert_array_keys($value, $find, $replace);
+    }
+  }
 
+  return;
+}
+
+function _icg_csv_import_remove_numeric_keys(&$array) {
+  foreach ($array as $key => &$value) {
+    // Change $find to $replace
+    if (is_numeric($key)) {
+      unset($array[$key]);
+    }
+    else {
+      // Recurse into the tree branch
+      if (is_array($value)) {
+        _icg_csv_import_remove_numeric_keys($value);
+      }
+    }
+  }
+
+  return;
+}
+
+function _icg_csv_import_recursive_array_search($array, $key, $value)
+{
+  $results = array();
+
+  if (is_array($array))
+  {
+    if (isset($array[$key]) && $array[$key] == $value)
+      $results[] = $array;
+
+    foreach ($array as $subarray)
+      $results = array_merge($results, _icg_csv_import_recursive_array_search($subarray, $key, $value));
+  }
+
+  return $results;
+}
+
+/*
+function _icg_csv_import_recursive_array_search($needle, $haystack) {
+  foreach($haystack as $key=>$value) {
+    $current_key=$key;
+    if($needle===$value OR (is_array($value) && recursive_array_search($needle,$value) !== false)) {
+      return $current_key;
+    }
+  }
+  return false;
+} */
