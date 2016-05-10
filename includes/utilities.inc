@@ -121,6 +121,7 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
     'textfield',
     'textarea',
     'tags',
+    'select',
   );
 
   // On the first call to this function $form_name should be provided, so use it
@@ -131,19 +132,22 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
 
   // If this branch of the form is a manipulable field...
   if (isset($array['#type']) && in_array($array['#type'], $manipulable_fields)) {
+    $oldType = $array['#type'];
     $title = $array['#title'];
     $array['#type'] = 'select';
-    $array['#options'] = $mappable_options;
- 
+    if ($oldType != 'select') { $array['#options'] = $mappable_options; }
+    
     $hash = $array['#hash'];
     if (!$found = _icg_csv_import_recursive_array_search($xpaths, '#hash', $hash)) {
-      dsm("Error - Could not find #hash => '$hash' for form element '$title' in the XPaths array.", 'error');
+      dsm("Could not find #hash => '$hash' for $oldType form element '$title' in the XPaths array.", 'Error');
+    } else if (!isset($found[0]['xpath'])) {
+      dsm("The $oldType form element '$title' has no XPath.", 'Warning');
     } else {
       $xp = $found[0]['xpath'];
-      $array['#description'] = 'This field will map to <b>' . $xp . '</b>.';
+      $array['#description'] = 'This '. $oldType .' field will map to <b>' . $xp . '</b>.';
     }
   }
-
+  
   // This branch of the form (tree) is not a manipulable field, break it down further
   else if (is_array($array)) {
     foreach($array as $key => &$value){
@@ -169,6 +173,7 @@ function _icg_csv_import_get_xpaths($form_name, $form) {
   // Traverse through the the $hashes copy of $form and find all the element #hash values.
   $hashes = $form;
   _icg_csv_import_gather_hashes($hashes);
+  _icg_csv_import_convert_array_keys($hashes, '#type', '#originalType');
   _icg_csv_import_convert_array_keys($hashes, '0', 'x');
   _icg_csv_import_remove_numeric_keys($hashes);
 
@@ -251,25 +256,30 @@ function _icg_csv_import_build_branch($a, $xp) {
 }
 
 /**
- * Remove all but the #hash key/value pairs from $array.
+ * Remove all but the #hash and #type key/value pairs from $array.
  *
  * @param array $array - The $form, or branch of the $form, as an array.
  */
 function _icg_csv_import_gather_hashes(&$array) {
-  static $toss = array( '#actions', '#options' );
+  static $toss = array('#actions', '#options');
+  static $keep = array('#hash', '#type');
   foreach ($array as $key => &$value) {
-    if (in_array($key, $toss, TRUE)) {   // toss out unneded arrays
+    if (in_array($key, $toss, TRUE)) {   // toss out unneeded arrays
       unset($array[$key]);
     } else if (is_array($value)) {  // traverse into all remaining arrays
       _icg_csv_import_gather_hashes($value);
-    } else if ($key != '#hash') {  // found a key/value pair and the key is not #hash, toss it
+    } else if (!in_array($key, $keep)) {  // found a key/value pair and the key is not #hash or #type, toss it
       unset($array[$key]);
     }
   }
   return;
 }
 
-
+/**
+ * @param $array
+ * @param $find
+ * @param $replace
+ */
 function _icg_csv_import_convert_array_keys(&$array, $find, $replace) {
   foreach ($array as $key => &$value) {
     // Change $find to $replace
@@ -286,6 +296,9 @@ function _icg_csv_import_convert_array_keys(&$array, $find, $replace) {
   return;
 }
 
+/**
+ * @param $array
+ */
 function _icg_csv_import_remove_numeric_keys(&$array) {
   foreach ($array as $key => &$value) {
     // Change $find to $replace
@@ -303,6 +316,12 @@ function _icg_csv_import_remove_numeric_keys(&$array) {
   return;
 }
 
+/**
+ * @param $array
+ * @param $key
+ * @param $value
+ * @return array
+ */
 function _icg_csv_import_recursive_array_search($array, $key, $value)
 {
   $results = array();
@@ -319,13 +338,3 @@ function _icg_csv_import_recursive_array_search($array, $key, $value)
   return $results;
 }
 
-/*
-function _icg_csv_import_recursive_array_search($needle, $haystack) {
-  foreach($haystack as $key=>$value) {
-    $current_key=$key;
-    if($needle===$value OR (is_array($value) && recursive_array_search($needle,$value) !== false)) {
-      return $current_key;
-    }
-  }
-  return false;
-} */

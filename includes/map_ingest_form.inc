@@ -2,7 +2,7 @@
 
 /**
  * CSV Import Form Callback
- * 
+ *
  * @param $form
  * @param $form_state
  * @param $collection
@@ -50,28 +50,16 @@ function icg_csv_import_form_submit($form, &$form_state) {
       // Instead go to the next page.
       $form_state['step']++;
       break;
-    case 1:
-      # http://stackoverflow.com/questions/1019076/how-to-search-by-key-value-in-a-multidimensional-array-in-php
-      $arrIt = new RecursiveIteratorIterator(new RecursiveArrayIterator($form));
 
-      foreach ($form_state['all_values']['xpaths'] as $key => $value) {
-        foreach ($arrIt as $sub) {
-          $subArray = $arrIt->getSubIterator();
-          if ($subArray['#title'] === $key) {
-            $subA = iterator_to_array($subArray);
-            $form_state['all_values']['crosswalk'][$key] = $subA['#value'];
-          }
-        }
-      }
-      
-      // Save our crosswalk to all_values crosswalk.
-      // $form_state['all_values']['crosswalk'] = $form_state['values'];
+    case 1:
+
       // Do not submit the form
       $form_state['rebuild'] = TRUE;
       // Instead go to the next page.
       $form_state['step']++;
-      dpm($form_state);
+      // pm($form_state);
       break;
+
     case 2:
       // Do something with all_values and redirect away from the form!
       icg_csv_import_build_batch($form_state);
@@ -227,7 +215,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       break;
 
     case 1:     // Form page 2... Map CSV columns to metadata form elements.
-      
+
       // A metadata form has been selected.  Fetch it's title and add it's data array to
       // $form_state['collection_policy']['selected']
       $selected_form = $form_state['all_values']['xml_form'];
@@ -245,17 +233,15 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
           $form_state['all_values']['label_field'] = $label_field;
           break;
         }
-      }  
-      
+      }
+
       // No mapping necessary...let the user know to proceed.
       if ($form_state['values']['skip_field_mapping']) {
-
         $form['message'] = array(
           '#markup' => "<p>You have indicated that metadata XPaths are already mapped in the first row of the CSV file.  Click 'Next' to proceed.</p>",
         );
 
       } else {    // Map CSV columns to metadata form elements.
-
         // Load our CSV parser.
         module_load_include('inc', 'icg_csv_import', 'includes/csv');
 
@@ -274,6 +260,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         $mappable_options = array(NULL => 'Ignored Field', "USE_CONSTANT" => 'Enter a constant value...',);
         foreach ($csv_parsed[0] as $column_heading) {
           $mappable_options[$column_heading] = $column_heading;
+          $form_state['all_values']['csvColumns'][ ] = $column_heading;
         }
 
         // Grab the XML form the user selected as associated.
@@ -295,37 +282,21 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
       break;
 
-    case 2:     // What was this page here for? Something probably.  @TODO...maybe display the XPath map?
-
-      // Step 2 is complete...build the $step3 form from the step 2 input!
+    case 2:   // Step 2 is complete...build the $step3 form from the step 2 input!
 
       // dpm($form_state['all_values']);
-      $merged = array_merge_recursive( $form_state['all_values']['xpaths'], $form_state['values']);
+
+      $values = $form_state['values'];
+      _icg_csv_import_convert_array_keys($values, '0', 'x');
+      _icg_csv_import_remove_numeric_keys($values);
+      $merged = array_merge_recursive($form_state['all_values']['xpaths'], $values);
+      _icg_csv_import_convert_array_keys($merged, '0', 'csv');
+      _icg_csv_import_remove_numeric_keys($merged);
       dpm($merged);
 
-      foreach ($form_state['all_values']['xpaths'] as $t => $x) {
-        $step3[$t] = array(
-          '#type' => 'textfield',
-          '#title' => $t,
-          '#prefix' => '<div class="form_row"><tr><td>',
-          '#suffix' => '</td>',
-          '#description' => t('Xpath'),
-          '#size' => 40,
-          '#required' => FALSE,
-          '#default_value' => $x,
-        );
-
-        $step3[$t.' constant'] = array(
-          '#type' => 'textfield',
-          '#prefix' => '<td>',
-          '#suffix' => '</td></tr></div>',
-          '#description' => t('Constant'),
-          '#size' => 20,
-          '#required' => FALSE,
-          '#default_value' => '',
-        );
-
-      }
+      // Make a review form from $merged.
+      $step3 = array( );
+      _icg_csv_import_make_review_form($merged, $step3, $form_state);
 
       $step3['submit'] = array(
         '#type' => 'submit',
@@ -334,15 +305,110 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
       $form[] = $step3;
       break;
-    
+
   endswitch;
 
   return $form;
 }
 
 /**
+ * @param $merged
+ * @param $step3
+ * @param $form_state
+ * @param bool $parent
+ */
+function _icg_csv_import_make_review_form($merged, &$step3, $form_state, $fieldset=FALSE) {
+  static $fieldsets = array( );
+  static $csvColumns = array( );
+
+  // If $fieldset is FALSE, loop through all the first-level elements of $merged.
+  // Build a fieldset form element for each.
+
+  if (!$fieldset) {
+    foreach ($merged as $key => $value) {
+      if (isset($value['#hash'])) {
+        $hash = $value['#hash'];
+        $fieldsets[] = $hash;
+        $step3[$hash] = array(
+          '#title' => $key,
+          '#type' => 'fieldset',
+        );
+      }
+    }
+    
+    // Get the list of CSV column names from $form_state['all_values']['csvColumns']
+    $csvColumns = $form_state['all_values']['csvColumns'];
+  }
+  
+  // Loop through each element of $merged.  If the element has a '#hash' $value 
+  // which is in $fieldsets, use it.
+  foreach ($merged as $key => $value) {
+    if (isset($value['#hash']) && in_array($value['#hash'], $fieldsets)) {
+      $fieldset = $value['#hash'];
+    }
+
+    if (isset($value['#originalType'])) { $original = $value['#originalType']; }
+    
+    // If the current element has both 'csv' and 'xpath' $value,
+    // then it must represent an imported or constant field; display it.
+    if (!empty($value['csv']) && isset($value['xpath'])) {
+      $useConstant = ($value['csv'] == "USE_CONSTANT");
+      $container = $key.'-container';
+
+      $step3[$fieldset][$container] = array(
+        '#prefix' => '',
+        '#suffix' => '<br/>',
+        '#type' => 'container',
+        '#attributes' => array(
+          'class' => array('container-inline'),
+        ),
+      );
+
+      $csv = $value['csv'];
+      $fromCSV = in_array($csv, $csvColumns);
+      
+      $step3[$fieldset][$container][$key] = array(
+        '#type' => 'textfield',
+        '#title' => "'$key' XPath for CSV column '$csv': ",
+        '#prefix' => "&nbsp;&nbsp;&nbsp;&nbsp;",
+        '#suffix' => "&nbsp;&nbsp;",
+        '#size' => 40,
+        '#required' => FALSE,
+        '#default_value' => $value['xpath'],
+      );
+      
+      if (!$fromCSV) { $step3[$fieldset][$container][$key]['#title'] = "'$key' XPath is: "; } 
+
+      // If this field uses a constant or if it was originally a select box...present a field box for that.
+      if ($useConstant) {
+        $step3[$fieldset][$container][$key . '-constant'] = array(
+          '#type' => 'textfield',
+          '#size' => 40,
+          '#required' => FALSE,
+          '#default_value' => 'Enter CONSTANT here.',
+        );
+      } else if ($original === 'select') {  // An XML form select box.  Present it as though it were a constant.
+        $step3[$fieldset][$container][$key . '-constant'] = array(
+          '#type' => 'textfield',
+          '#disabled' => TRUE,
+          '#size' => 40,
+          '#required' => FALSE,
+          '#value' => $value['csv'],
+        );
+      }
+    }
+
+    // If $value is an array, traverse it recursively to look for more 'csv' elements.
+    if (is_array($value)) {
+      _icg_csv_import_make_review_form($value, $step3, $form_state, $fieldset);
+    }
+  }
+}
+
+
+/**
  * Form validation handler.
- * 
+ *
  * @param $form
  * @param $form_state
  */
