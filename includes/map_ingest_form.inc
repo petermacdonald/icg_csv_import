@@ -124,25 +124,50 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
       $form['#validate'][] = 'icg_csv_import_validate';
 
-      $form['content_model'] = array(
+      $form['csv_file'] = array(
+        '#name' => 'files[csv_file]',
+        '#type' => 'file',
+        '#title' => t('Select your CSV File.'),
+        '#description' => t('Allowed file types are .csv and .txt'),
+        '#size' => 200,
+        '#required' => TRUE,
+        '#default_value' => TRUE,
+      );
+
+      $form['options_fieldset'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Map CSV Fields to XPaths'),
+        '#description' => t('If row 1 of the selected CSV file already contains a mapped list of MODS XPaths you can skip the other parameters in this section.'),
+      );
+      
+      $form['options_fieldset']['skip_field_mapping'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('CSV First Row Already Contains the Field Mapping.'),
+        '#description' => t('Check this box if the first row of your CSV file already contains mapped XPaths.  Note that checking this option also carries the assumption that your object LABELs will be determined based on the /mods/titleInfo/title field.'),
+        '#default_value' => FALSE,
+        '#prefix' => "<br/><hr/>",
+        '#suffix' => "<hr/>",
+      );
+
+      $form['options_fieldset']['content_model'] = array(
         '#type' => 'select',
         '#title' => t('Destination Content Model'),
         '#description' => t('Select an available content model to ingest into.'),
         '#options' => $content_models,
         '#default_value' => $selected_cmodel,
-        '#required' => TRUE,
+        '#required' => FALSE,
         '#ajax' => array(
           'callback' => 'icg_csv_import_form_ajax_callback',
         ),
       );
 
-      $form['xml_form'] = array(
+      $form['options_fieldset']['xml_form'] = array(
         '#type' => 'select',
         '#title' => t('Select XML form to use...'),
         '#prefix' => '<div id="xml-dropdown-update">',
         '#suffix' => '</div>',
         '#description' => t('Lorem ipsum.'),
-        '#required' => TRUE,
+        '#required' => FALSE,
         '#options' => _icg_ajax_callback_xml_form($selected_cmodel, $xml_forms),
       );
 
@@ -159,31 +184,25 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       $form['csv_delimiter'] = array(
         '#type' => 'textfield',
         '#title' => t('CSV Field Delimiter'),
-        '#description' => t('Enter the character that separates fields in 
-        your CSV file.'),
+        '#description' => t('Enter the character that separates fields in your CSV file.'),
         '#size' => 10,
         '#required' => TRUE,
         '#default_value' => ',',
       );
 
-      $form['csv_file'] = array(
-        '#name' => 'files[csv_file]',
-        '#type' => 'file',
-        '#title' => t('Select your CSV File.'),
-        '#description' => t('Allowed file types are .csv and .txt'),
-        '#size' => 200,
-        '#required' => TRUE,
+      $form['ingest_as_inactive'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Ingest items as inactive?'),
         '#default_value' => TRUE,
       );
 
-      $form['skip_field_mapping'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('CSV first row already contains the field mapping?'),
-        '#description' => t('Check this box if the first row of your CSV file already contains mapped XPaths.'),
-        '#default_value' => FALSE,
+      $form['credentials_fieldset'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Provide Credentials for Content Download'),
+        '#description' => t('These parameters are only necessary if your CSV file includes an OBJ column indicating where each content objet is stored. By default the download process is dictated by your hook_fetch_OBJ( ) function.  See icg_csv_import.api.php for details.'),
       );
-
-      $form['credentials_username'] = array(
+      
+      $form['credentials_fieldset']['credentials_username'] = array(
         '#type' => 'textfield',
         '#title' => t('File Transfer Username'),
         '#description' => t('Enter the username required to execute content file transfers.'),
@@ -192,19 +211,13 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#default_value' => 'None',
       );
 
-      $form['credentials_password'] = array(
+      $form['credentials_fieldset']['credentials_password'] = array(
         '#type' => 'password',
         '#title' => t('File Transfer Password'),
         '#description' => t('Enter the password corresponding to username (above) to execute content file transfers.'),
         '#size' => 20,
         '#required' => FALSE,
         '#default_value' => 'None',
-      );
-
-      $form['ingest_as_inactive'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Ingest items as inactive?'),
-        '#default_value' => TRUE,
       );
 
       $form['submit'] = array(
@@ -216,32 +229,36 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
     case 1:     // Form page 2... Map CSV columns to metadata form elements.
 
-      // A metadata form has been selected.  Fetch it's title and add it's data array to
-      // $form_state['collection_policy']['selected']
-      $selected_form = $form_state['all_values']['xml_form'];
-      $cmodel = $form_state['all_values']['content_model'];
-      $forms = $form_state['collection_policy']['forms'][$cmodel];
-      foreach($forms as $fdata) {
-        if ($fdata['form_name'] === $selected_form) {
-          $form_state['collection_policy']['selected'] = $fdata;
-          $path = drupal_get_path('module', 'xml_form_builder');
-          $form_state['all_values']['transform'] = $path.'/transforms/'.$fdata['transform'];
-          $label_field = '/mods';
-          foreach($fdata['title_field'] as $tfield) {
-            $label_field .= '/'.$tfield;
-          }
-          $form_state['all_values']['label_field'] = $label_field;
-          break;
-        }
-      }
 
       // No mapping necessary...let the user know to proceed.
       if ($form_state['values']['skip_field_mapping']) {
         $form['message'] = array(
           '#markup' => "<p>You have indicated that metadata XPaths are already mapped in the first row of the CSV file.  Click 'Next' to proceed.</p>",
         );
+        $form_state['step']++;   // skip the mapping AND review forms
+        $form_state['all_values'] += _fetch_CSV_defaults( );
 
       } else {    // Map CSV columns to metadata form elements.
+
+        // A metadata form has been selected.  Fetch it's title and add it's data array to
+        // $form_state['collection_policy']['selected']
+        $selected_form = $form_state['all_values']['xml_form'];
+        $cmodel = $form_state['all_values']['content_model'];
+        $forms = $form_state['collection_policy']['forms'][$cmodel];
+        foreach($forms as $fdata) {
+          if ($fdata['form_name'] === $selected_form) {
+            $form_state['collection_policy']['selected'] = $fdata;
+            $path = drupal_get_path('module', 'xml_form_builder');
+            $form_state['all_values']['transform'] = $path.'/transforms/'.$fdata['transform'];
+            $label_field = '/mods';
+            foreach($fdata['title_field'] as $tfield) {
+              $label_field .= '/'.$tfield;
+            }
+            $form_state['all_values']['label_field'] = $label_field;
+            break;
+          }
+        }
+
         // Load our CSV parser.
         module_load_include('inc', 'icg_csv_import', 'includes/csv');
 
@@ -303,7 +320,9 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#value' => t('Submit')
       );
 
-      $form[] = $step3;
+      $form = $step3;
+      dpm($form);
+      
       break;
 
   endswitch;

@@ -5,6 +5,23 @@
  */
 
 /**
+ * If the MODS xpaths are already in the CSV file and XPath mapping is skipped...
+ * call any/all registered hook_fetch_CSV_defaults functions.
+ *
+ * @return array $return
+ *   'label_field' => Specifies the MODS field used to define an object's LABEL.  Usually /mods/titleInfo/title.
+ *   'transform' => Specifies the full path of the MODS-to-DC transform to run on each object MODS record.
+ */
+function hook_fetch_CSV_defaults( ) {
+  $values = array(
+    'label_field' => '/mods/titleInfo/title',
+    'transform' => '/tmp/mods-to-dc.xslt',
+  );
+  return $values;
+}
+
+
+/**
  * Perform a binary fetch of a named file from storage.  This example performs
  * a simple FTP transfer from a network storage server.
  *

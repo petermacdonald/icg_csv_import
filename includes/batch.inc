@@ -7,7 +7,6 @@
  * @return bool
  */
 function icg_csv_import_readCSV($csv_file, $parent, $ns) {
-  //$csv_file = "valid_example1";
   ini_set("auto_detect_line_endings", true);
   $csv_data = array();
   $rowcount = 0;
@@ -27,7 +26,6 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
       //if numbers match, enter into arrays
       if ($number_of_row_data == $csv_headers_number) {
         $entry = $row;
-//      $csv_data[] = $entry;
         $pid = icg_csv_import_batch_item($csv_headers, $entry, $parent, $ns, $inactive=FALSE);
       }
       //if numbers don't match
@@ -37,20 +35,6 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
       }
       $rowcount++;
     }
-    /*****************************************
-    //display data to check it (can be deleted)
-    echo "Total rows found: $rowcount\n";
-    for ($row = 0; $row < sizeof($csv_data); $row++) {
-    echo "<p><b>Row number $row</b></p>";
-    echo "<br>";
-    print_r ($csv_data[$row]);
-    for ($col = 0; $col < sizeof($csv_data[$row]); $col++) {
-    echo "<li>".$csv_data[$row][$col]."</li>";
-    }
-    echo "<br>";
-    }
-    //end data display
-     ******************************************/
 
     //close file connection
     fclose($file_handle);
@@ -345,6 +329,22 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
 }
 
 // ------------------------ Private functions ----------------------------
+
+/**
+ * If the MODS xpaths are already in the CSV file and XPath mapping is skipped...
+ * call any/all registered hook_fetch_CSV_defaults functions.
+ *
+ * @return array $return
+ *   'label_field' => Specifies the MODS field used to define an object's LABEL.  Usually /mods/titleInfo/title.
+ *   'transform' => Specifies the full path of the MODS-to-DC transform to run on each object MODS record.
+ * 
+ */
+function _fetch_CSV_defaults( ) {
+  // Call all modules implementing 'hook_fetch_CSV_defaults':
+  $return = module_invoke_all('fetch_CSV_defaults');
+  return $return;
+}
+
 
 /**
  * Call any/all registered hook_fetch_OBJ functions.

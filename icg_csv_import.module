@@ -52,6 +52,19 @@ function icg_csv_access_callback($object) {
 }
 
 /**
+ * Implements hook_fetch_CSV_defaults.
+ */
+function icg_csv_import_fetch_CSV_defaults( ) {
+  $path = drupal_get_path('module', 'icg_csv_import');
+  $array = array(
+    'label_field' => '/mods/titleInfo/title',
+    'transform'   => $path . '/tests/data/mods_to_dc.xsl',
+  );
+  return $array;
+}
+
+
+/**
  * Implements hook_fetch_OBJ.
  */
 function icg_csv_import_fetch_OBJ($path, $credentials) {
