@@ -80,6 +80,14 @@ function icg_csv_import_build_batch($form_state) {
     $format = 'Y-m-d:H:i:s';
     $marker = date($format);
 
+    // If $constants are defined, append their keys to $headers.
+    $constants = $form_state['all_values']['constants'];
+    if (!empty($constants)) {
+      foreach ($constants as $key => $value) {
+        $headers[] = $key;
+      }
+    }
+
     // Open a temporary .csv file and write the $marker cell followed by $headers.
     $history = $temporary.'/CSV_import_history_'.$marker.'.csv';
     if (!$temp = fopen($history,'w')) {
@@ -121,8 +129,15 @@ function icg_csv_import_build_batch($form_state) {
 
     // Read and process the CSV file one line at a time
     while ($line = fgetcsv($handle)) {
+      // If $constants is defined, append the $values of $constants to $line
+      if (!empty($constants)) {
+        $full_line = array_merge($line, $constants);
+      } else {
+        $full_line = $line;
+      }
+
       // use base64_encode to ensure we don't overload the batch processor by stuffing complex objects into it
-      $batch['operations'][] = array('icg_csv_import_import_line', array(array_map('base64_encode', $line)));
+      $batch['operations'][] = array('icg_csv_import_import_line', array(array_map('base64_encode', $full_line)));
     }
     fclose($handle);
   }
@@ -170,7 +185,7 @@ function icg_csv_import_import_finished($success, $results, $operations) {
 }
 
 /**
- * Remember the uploaded CSV filename, control parameters, and header.
+ * Remember the uploaded CSV filename, control parameters, and headers.
  *
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
  *
@@ -210,7 +225,7 @@ function icg_csv_import_import_line($line, &$context) {
  * Generates one new object in the Islandora repository based on the XPaths ($headers)
  * of the destination metadata fields and corresponding $row data.
  *
- * @param array() $headers - XPaths of destination fields
+ * @param array() $head - XPaths of destination fields
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
  * @param array() $controls - Process controls passed from the user interface. Elements mostly
  *   from $form_state['all_values'] include:
@@ -219,13 +234,16 @@ function icg_csv_import_import_line($line, &$context) {
  *   namespace - The namespace (no colon) to ingest new objects into
  *   inactive - Indicator if the ingested objects are to be Active or Inactive
  *   history - Name of the temporary file holding processed import history
- *   update - Indicates if this process is updating a previous import (has history) or if objects are all new
+ *   update - Indicates if this process is updating a previous import (has history) or if objects 
+ *     are all new
+ *   constants - Associative array of constants, xpath => value pairs to be added to each row of 
+ *     the CSV and corresponding new object
  *   transform  @TODO - The path to the defined XSLT transform to be applied to new MODS records
  *   labelXPath  @TODO - The XPath to the data to be used as new object labels
  *
  * @return string|bool - The PID of the ingested object, or FALSE in case of an error
  */
-function icg_csv_import_batch_item($headers, $row, $controls) {
+function icg_csv_import_batch_item($head, $row, $controls) {
   $module_name = basename(__FILE__, '.module');
   static $temporary = '/tmp';
   static $MODS = '/templates/MODS.xml';
@@ -235,7 +253,8 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
   $inactive = $controls['ingest_as_inactive'];
   $history = $controls['history'];
   $update = $controls['update'];
-  $transform = $controls['transform'];   
+  $transform = $controls['transform'];
+  $constants = $controls['constants'];
   $labelXPath = $controls['label_field'];
   $credentials['username'] = $controls['credentials_username'];
   $credentials['password'] = $controls['credentials_password'];
@@ -245,6 +264,15 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
   $path = drupal_get_path('module','icg_csv_import');
 
   $record = $row;
+  $headers = $head;
+
+  /* If $constants are defined, append their keys to $headers and their values to $record.
+  if (!empty($constants)) {
+    foreach ($constants as $key => $value) {
+      $headers[] = $key;
+      $record[] = $value;
+    }
+  }*/
 
   // Check for a hashtag (comment) marker at the start of $row.  If found then echo
   // $row into the history file but do nothing else.
@@ -274,7 +302,7 @@ function icg_csv_import_batch_item($headers, $row, $controls) {
 
   // Primary loop...where the rubber meets the road.
   //
-  // Loop $i through $headers and $row adding data elements to $doc along the way.
+  // Loop $i through $headers and $record adding data elements to $doc along the way.
   // Skip all comment (# as first character) rows and empty $headers or $row cells.
   // Look for the optional "special" $headers 'LABEL, 'OBJ' and 'CModel' which mark the
   // columns of $row that contain the object label, OBJ content filename, and

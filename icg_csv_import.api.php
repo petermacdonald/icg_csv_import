@@ -11,11 +11,13 @@
  * @return array $return
  *   'label_field' => Specifies the MODS field used to define an object's LABEL.  Usually /mods/titleInfo/title.
  *   'transform' => Specifies the full path of the MODS-to-DC transform to run on each object MODS record.
+ *   'constants_file' => Specifies the full path of the "constants" CSV file used to populate specified fields of all imported objects.
  */
 function hook_fetch_CSV_defaults( ) {
   $values = array(
     'label_field' => '/mods/titleInfo/title',
     'transform' => '/tmp/mods-to-dc.xslt',
+    'constants_file' => '/tmp/constants.csv',
   );
   return $values;
 }

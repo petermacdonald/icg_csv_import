@@ -61,6 +61,25 @@ function icg_csv_import_form_submit($form, &$form_state) {
       break;
 
     case 2:
+
+      // Fetch defaults
+      $defaults = _fetch_CSV_defaults( );
+
+      // Open the constants file, if any
+      $constants = array( );
+      if (($file_handle = fopen($defaults['constants_file'], "r")) !== FALSE) {
+        // Read first line to get xpath/header info
+        $headers = fgetcsv($file_handle);
+        // Read the next line to get data
+        $data = fgetcsv($file_handle);
+        // Save the data in $form_state['all_values']['constants']
+        for ($i=0; $i<count($headers); $i++) {
+          $form_state['all_values']['constants'][$headers[$i]] = $data[$i];
+        }
+        //close file connection
+        fclose($file_handle);
+      }
+
       // Do something with all_values and redirect away from the form!
       icg_csv_import_build_batch($form_state);
       dpm($form_state);
