@@ -63,7 +63,7 @@ function icg_csv_import_fetch_CSV_defaults( ) {
   );
   return $array;
 }
-
+*/
 
 /**
  * Implements hook_fetch_OBJ.
@@ -118,4 +118,4 @@ function icg_csv_import_fetch_OBJ($path, $credentials) {
 
   return $temp_file;
 }
-
+*/
