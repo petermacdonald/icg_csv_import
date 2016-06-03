@@ -53,7 +53,7 @@ function icg_csv_access_callback($object) {
 
 /**
  * Implements hook_fetch_CSV_defaults.
- */
+ *
 function icg_csv_import_fetch_CSV_defaults( ) {
   $path = drupal_get_path('module', 'icg_csv_import');
   $array = array(
@@ -67,7 +67,7 @@ function icg_csv_import_fetch_CSV_defaults( ) {
 
 /**
  * Implements hook_fetch_OBJ.
- */
+ *
 function icg_csv_import_fetch_OBJ($path, $credentials) {
 
   $ftp_username = $credentials['username']; 
