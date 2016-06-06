@@ -130,10 +130,11 @@ function icg_csv_import_build_batch($form_state) {
     // Read and process the CSV file one line at a time
     while ($line = fgetcsv($handle)) {
       // If $constants is defined, append the $values of $constants to $line
+      $full_line = $line;
       if (!empty($constants)) {
-        $full_line = array_merge($line, $constants);
-      } else {
-        $full_line = $line;
+        foreach ($constants as $key => $value) {
+          $full_line[] = $value;
+        }
       }
 
       // use base64_encode to ensure we don't overload the batch processor by stuffing complex objects into it
@@ -232,7 +233,7 @@ function icg_csv_import_import_line($line, &$context) {
  * 
  *   parent_pid - The PID of the parent collection
  *   namespace - The namespace (no colon) to ingest new objects into
- *   inactive - Indicator if the ingested objects are to be Active or Inactive
+ *   inactive - Indicates if the ingested objects are to be Active or Inactive
  *   history - Name of the temporary file holding processed import history
  *   update - Indicates if this process is updating a previous import (has history) or if objects 
  *     are all new
