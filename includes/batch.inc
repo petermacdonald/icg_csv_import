@@ -69,7 +69,7 @@ function icg_csv_import_build_batch($form_state) {
   ) ;
 
   $csv_filename = $form_state['all_values']['csv_file']->uri;
-  
+
   if ($handle = fopen($csv_filename, 'r')) {
     if ($form_state['all_values']['skip_field_mapping']) {
       $headers = fgetcsv($handle);   // first line is $headers
@@ -145,7 +145,7 @@ function icg_csv_import_build_batch($form_state) {
 
   // Return path
   $path = '/islandora/object/'.$form_state['all_values']['parent_pid'];
-  
+
   // Set for batch processing...and Go!
   batch_set($batch);
   batch_process($path);
@@ -205,12 +205,12 @@ function icg_csv_import_remember($filename, $parameters, $headers, &$context) {
 function icg_csv_import_import_line($line, &$context) {
   $context['results']['rows_imported']++;
   $line = $cleaned_line = array_map('base64_decode', $line);
-  
+
   // dpm($context);
 
   // Show the import row count
   $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
-  
+
   // Pull parameters from $context...
   $headers = $context['results']['headers'];
 
@@ -230,14 +230,14 @@ function icg_csv_import_import_line($line, &$context) {
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
  * @param array() $controls - Process controls passed from the user interface. Elements mostly
  *   from $form_state['all_values'] include:
- * 
+ *
  *   parent_pid - The PID of the parent collection
  *   namespace - The namespace (no colon) to ingest new objects into
  *   inactive - Indicates if the ingested objects are to be Active or Inactive
  *   history - Name of the temporary file holding processed import history
- *   update - Indicates if this process is updating a previous import (has history) or if objects 
+ *   update - Indicates if this process is updating a previous import (has history) or if objects
  *     are all new
- *   constants - Associative array of constants, xpath => value pairs to be added to each row of 
+ *   constants - Associative array of constants, xpath => value pairs to be added to each row of
  *     the CSV and corresponding new object
  *   transform  @TODO - The path to the defined XSLT transform to be applied to new MODS records
  *   labelXPath  @TODO - The XPath to the data to be used as new object labels
@@ -366,7 +366,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
  * @return array $return
  *   'label_field' => Specifies the MODS field used to define an object's LABEL.  Usually /mods/titleInfo/title.
  *   'transform' => Specifies the full path of the MODS-to-DC transform to run on each object MODS record.
- * 
+ *
  */
 function _fetch_CSV_defaults( ) {
   // Call all modules implementing 'hook_fetch_CSV_defaults':
@@ -418,13 +418,13 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
   $index = $attr = $attribute = FALSE;
 
   // Look ahead for a node $index in $parts; don't add these to $previous
-  if (!empty($parts[0]) && is_numeric($parts[0])) {    // element has an index
+  if (isset($parts[0]) && _is_unsigned_integer($parts[0])) {    // element has an index
     $index = array_shift($parts);
     // dpr("index:$index\n");
   }
 
   // Look ahead for an $attribute in $parts
-  if (!empty($parts[0]) && _startsWith($parts[0], '@')) {   // element has an attribute
+  if (isset($parts[0]) && _startsWith($parts[0], '@')) {   // element has an attribute
     list($attr, $val) = explode('=', $parts[0], 2);
     $value = trim($val,"'");
     // dpr("attribute:$attr=$value\n");
@@ -443,7 +443,7 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
   // dpr("current:$current\n");
 
   // If this is not the end of the $xpath, don't set $data!
-  if (!empty($parts[0])) {
+  if (isset($parts[0])) {
     $text = NULL;
   } else {
     $text = $data;
@@ -458,12 +458,13 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
     } else {    // $current not found, append a new child node to $parent and make it the new $parent.
       $parent = _make_node($doc, $parent, $element, $attribute, $text);
     }
-  } else {   // We have an $index!  We need a new $node attached to $parent
+    // We have an $index!  @TODO...Look for existing parent with matching index to attach to, or create a new element if none is found.
+  } else {
     $parent = _make_node($doc, $parent, $element, $attribute, $text);
   }
 
   // If there are any $parts left, build the $remainder xpath, pass $current as the last xpath processed, and recurse.
-  if (!empty($parts[0])) {
+  if (isset($parts[0])) {
     $remainder = implode('/',$parts);
     _generateNodeFromXPath($doc, $parent, $remainder, $data, $current);
   }
@@ -486,7 +487,7 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  *   'username' => The username to use for successful file transfer.
  *   'password' => The corresponding password for file transfer.
  * @param bool $inactive - TRUE if the object is to be made inactive.
- * 
+ *
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
 function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL, $credentials=NULL, $inactive=FALSE) {
@@ -494,7 +495,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
   $collection_object = islandora_object_load($parent_pid);
-  
+
   if ($collection_object) {
     $repo = $collection_object->repository;
   }
@@ -502,7 +503,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     watchdog($module_name, "Could not open parent object '%parent'.", array('%parent' => $parent_pid), WATCHDOG_ERROR);
     return FALSE;
   }
-  
+
   $object = $repo->constructObject($ns);    // construct a new object in the specified namespace
   $object->models = $content_model;         // associate it with $content_model
   $object->label = $label;                  // use the label provided
@@ -541,7 +542,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     return FALSE;
   }
 
-  // Now, get the MODS-to-DC transform.  
+  // Now, get the MODS-to-DC transform.
   $xsl = new DOMDocument( );
   if (!$xsl->load($transform)) { die("Failed to load Transform file '$transform!'"); }
   $xslt = new XSLTProcessor( );
@@ -556,7 +557,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
   }
 
   // OK, my hook_CMODEL_PID_islandora_object_ingested function is NOT firing!  So
-  // take the bull by the horns here.  
+  // take the bull by the horns here.
   _make_derivatives($object);
 
   // Now, if the object is to be "inactive", set it so.
@@ -565,6 +566,8 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     $owner = $object->owner;
     $timestamp = $api_m->modifyObject($pid, "I", $owner, "Object set inactive via CSV import.");
   }
+
+  drupal_set_message("Successfully created new object '$pid' via CSV import.");
 
   return $pid;
 }
@@ -652,3 +655,19 @@ function _startsWith($haystack, $needle) {
   return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== false;
 }
 
+/**
+ * Determine if a variable represents an unsigned, whole integer.  Lifted from
+ * http://php.net/manual/en/function.is-numeric.php
+ *
+ * @param $val
+ * @return int
+ */
+function _is_unsigned_integer($val) {
+  $val=str_replace(" ", "", trim($val));
+  $test = preg_match("/^([0-9])+$/", $val);
+  if ($test == 1) {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
