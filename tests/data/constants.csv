@@ -1,2 +1,2 @@
-CMODEL, /mods/name[@type='personal']/namePart, /mods/name/role/roleTerm,/mods/typeOfResource, /mods/genre,
+CMODEL, /mods/name[1][@type='personal']/namePart, /mods/name[1]/role/roleTerm,/mods/typeOfResource, /mods/genre,
 sp_basic_image, "Park, Jongbeom", "contributor", "still image", "photograph",

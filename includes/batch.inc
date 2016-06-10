@@ -458,9 +458,16 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
     } else {    // $current not found, append a new child node to $parent and make it the new $parent.
       $parent = _make_node($doc, $parent, $element, $attribute, $text);
     }
-    // We have an $index!  @TODO...Look for existing parent with matching index to attach to, or create a new element if none is found.
+
+  // We have an $index!  @TODO...Look for existing parent with matching index to attach to, or create a new element if none is found.
   } else {
-    $parent = _make_node($doc, $parent, $element, $attribute, $text);
+    $dx = new DOMXPath($doc);
+    $nodes = $dx->query($current);
+    if ($nodes->length > 0) {     // $current was found, set $parent to the $index node and move on.
+      $parent = $nodes->item($index-1);
+    } else {    // $current not found, append a new child node to $parent and make it the new $parent.
+      $parent = _make_node($doc, $parent, $element, $attribute, $text);
+    }
   }
 
   // If there are any $parts left, build the $remainder xpath, pass $current as the last xpath processed, and recurse.
@@ -656,11 +663,11 @@ function _startsWith($haystack, $needle) {
 }
 
 /**
- * Determine if a variable represents an unsigned, whole integer.  Lifted from
+ * Determine if a $val represents an unsigned, whole integer.  Lifted from
  * http://php.net/manual/en/function.is-numeric.php
  *
  * @param $val
- * @return int
+ * @return boolean
  */
 function _is_unsigned_integer($val) {
   $val=str_replace(" ", "", trim($val));
