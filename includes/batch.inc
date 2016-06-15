@@ -247,7 +247,8 @@ function icg_csv_import_import_line($line, &$context) {
 function icg_csv_import_batch_item($head, $row, $controls) {
   $module_name = basename(__FILE__, '.module');
   static $temporary = '/tmp';
-  static $MODS = '/templates/MODS.xml';
+  static $ns = 'mods';
+  static $nsU = 'http://www.loc.gov/mods/v3';
 
   $parent_pid = $controls['parent_pid'];
   $namespace = $controls['namespace'];
@@ -285,18 +286,11 @@ function icg_csv_import_batch_item($head, $row, $controls) {
     return TRUE;
   }
 
-  // Fetch the MODS template
-  if (!$template = file_get_contents($path.$MODS)) {
-    watchdog($module_name, "Could not open '%mods'.", array('%mods' => $MODS), WATCHDOG_ERROR);
-    return FALSE;
-  }
-
-  // Use $MODS to create a new DOMDocument to hold the data.
-  $doc = new DOMDocument();
-  if (!$doc->loadXML($template)) {
-    watchdog($module_name, "Could not load '%mods' content as XML.", array('%mods' => $MODS), WATCHDOG_ERROR);
-    return FALSE;
-  }
+  // Build a simple MODS DOMDocument to hold the data.
+  $doc = new DOMDocument('1.0');
+  $xmlns = $doc->createAttribute('xmlns');
+  $xmlns->value = $nsU;
+  $root = _make_node($doc, $doc, $ns, $xmlns, NULL);
 
   $length = min(count($headers), count($row));
   $obj = $cmodel = $label = NULL;
@@ -401,14 +395,15 @@ function _fetch_OBJ($path, $credentials) {
  */
 function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' ) {
   static $ns = 'mods';
+  static $nsU = 'http://www.loc.gov/mods/v3';
+
 
   // If no parent is provided, assume that we begin from the document root
-  if (!$parent) { $parent = $doc->documentElement; };
+  $root = $doc->documentElement;
+  if (!$parent) { $parent = $root; };
 
-  // Trim the $xpath
+  // Trim the $xpath and grab the next element name in the $xpath
   $trimmed = trim($xpath, '/');
-
-  // Grab the next element name in the $xpath
   $parts = _multiexplode(array('/','[',']'), $trimmed);
 
   // Pop the $element off of the $parts array
@@ -417,10 +412,11 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
 
   $index = $attr = $attribute = FALSE;
 
-  // Look ahead for a node $index in $parts; don't add these to $previous
+  // Look ahead for a node $index in $parts.  If none is present assume $index = 1.
   if (isset($parts[0]) && _is_unsigned_integer($parts[0])) {    // element has an index
     $index = array_shift($parts);
-    // dpr("index:$index\n");
+  } else {
+    $index = 1;
   }
 
   // Look ahead for an $attribute in $parts
@@ -437,8 +433,8 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
     $attribute->value = $value;
   }
 
-  // Add the $ns namespace to this element and then append that to $previous to make a new $current xpath
-  if ($element) { $current = $previous.'/'.$ns.':'.$element; }
+  // Append $element to $previous to make a new $current xpath
+  if ($element) { $current = $previous.'/'.$element."[$index]"; }
   if ($attr) { $current .= "[$attr='$value']"; }
   // dpr("current:$current\n");
 
@@ -449,25 +445,21 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
     $text = $data;
   }
 
-  // If there is no $index, then look for $current.
-  if (!$index) {
-    $dx = new DOMXPath($doc);
-    $nodes = $dx->query($current);
-    if ($nodes->length > 0) {     // $current was found, set $parent to the $current node and move on.
-      $parent = $nodes->item(0);
-    } else {    // $current not found, append a new child node to $parent and make it the new $parent.
-      $parent = _make_node($doc, $parent, $element, $attribute, $text);
-    }
+  /* Debugging...
+  $debug = $doc->saveXML();   // for debugging only!
+  drupal_set_message("_generateNodeFromXPath element, attribute, text are: '$element', '$attribute->name', '$text'.", 'info');
+  drupal_set_message("...................... target is: '$current'.", 'info'); */
 
-  // We have an $index!  @TODO...Look for existing parent with matching index to attach to, or create a new element if none is found.
-  } else {
-    $dx = new DOMXPath($doc);
-    $nodes = $dx->query($current);
-    if ($nodes->length > 0) {     // $current was found, set $parent to the $index node and move on.
-      $parent = $nodes->item($index-1);
-    } else {    // $current not found, append a new child node to $parent and make it the new $parent.
-      $parent = _make_node($doc, $parent, $element, $attribute, $text);
-    }
+  // Search for an existing $current node and make it the $parent.  If none exist, create a new node.
+  $dx = new DOMXPath($doc);
+  $dx->registerNamespace($ns, $nsU);
+  $nodes = $dx->query($current);
+  if ($nodes->length > 0) {     // $current[$index] was found, set $parent to the $index node and move on.
+    $parent = $nodes->item(0);  // $index - 1);
+    // drupal_set_message("...................... found parent '$parent->nodeName'.", 'info');
+  } else {    // $current not found, append a new child node to $parent and make it the new $parent.
+    $parent = _make_node($doc, $parent, $element, $attribute, $text);
+    // drupal_set_message("...................... created node on parent '$parent->nodeName'.", 'info');
   }
 
   // If there are any $parts left, build the $remainder xpath, pass $current as the last xpath processed, and recurse.

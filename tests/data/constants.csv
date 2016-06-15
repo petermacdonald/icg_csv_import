@@ -1,2 +1,2 @@
-CMODEL, /mods/name[1][@type='personal']/namePart, /mods/name[1]/role/roleTerm, /mods/name[2][@type='personal']/namePart, /mods/name[2]/role/roleTerm, /mods/typeOfResource, /mods/genre,
-sp_basic_image, "Park, Jongbeom", "contributor", "Graham, Andrew", "faculty sponsor", "still image", "photograph",
+CMODEL, /mods/name[1][@type='personal']/namePart, /mods/name[2][@type='personal']/role/roleTerm, /mods/name[2][@type='personal']/namePart, /mods/name[1][@type='personal']/role/roleTerm, /mods/typeOfResource, /mods/genre, /mods/accessCondition[@type='useAndReproduction'],
+sp_basic_image, "Park, Jongbeom", "faculty sponsor", "Graham, Andrew", "contributor", "still image", "photograph", "Copyright to this work is held by the author(s), in accordance with United States copyright law (USC 17). Readers of this work have certain rights as defined by the law, including but not limited to fair use (17 USC 107 et seq.).",
