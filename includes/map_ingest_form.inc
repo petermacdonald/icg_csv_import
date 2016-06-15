@@ -67,7 +67,8 @@ function icg_csv_import_form_submit($form, &$form_state) {
 
       // Open the constants file, if any
       $constants = array( );
-      if (($file_handle = fopen($defaults['constants_file'], "r")) !== FALSE) {
+      // if (($file_handle = fopen($defaults['constants_file'], "r")) !== FALSE) {
+      if ((isset($form_state['all_values']['constants_file']) && $file_handle = fopen($form_state['all_values']['constants_file'], "r")) !== FALSE) {
         // Read first line to get xpath/header info
         $headers = fgetcsv($file_handle);
         // Read the next line to get data
@@ -151,6 +152,16 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#size' => 200,
         '#required' => TRUE,
         '#default_value' => TRUE,
+      );
+
+      $form['constants_file'] = array(
+        '#name' => 'files[constants_file]',
+        '#type' => 'file',
+        '#title' => t('Select your constants CSV File.'),
+        '#description' => t('Allowed file types are .csv and .txt'),
+        '#size' => 200,
+        '#required' => FALSE,
+        // '#default_value' => TRUE,
       );
 
       $form['options_fieldset'] = array(
@@ -460,7 +471,18 @@ function icg_csv_import_validate($form, &$form_state) {
     if ($file) {
       $form_state['values']['csv_file'] = $file;  // Put the temporary file in $form_values so we can save it on submit.
     } else {
-      form_set_error('icg_csv_import', t('The CSV file could not be uploaded.'));  // File upload failed.
+      form_set_error('icg_csv_import', t('The CSV data file could not be uploaded.'));  // File upload failed.
+    }
+  }
+
+  // Check for a new uploaded constants CSV.
+  $file = file_save_upload('constants_file', $validators);
+  if (isset($file)) {
+    // File upload was attempted.
+    if ($file) {
+      $form_state['values']['constants_file'] = $file;  // Put the temporary file in $form_values so we can save it on submit.
+    } else {
+      form_set_error('icg_csv_import', t('The constants CSV file could not be uploaded.'));  // File upload failed.
     }
   }
 }
