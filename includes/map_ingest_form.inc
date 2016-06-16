@@ -66,19 +66,16 @@ function icg_csv_import_form_submit($form, &$form_state) {
       $defaults = _fetch_CSV_defaults( );
 
       // Open the constants file, if any
-      $constants = array( );
-      // if (($file_handle = fopen($defaults['constants_file'], "r")) !== FALSE) {
-      if ((isset($form_state['all_values']['constants_file']) && $file_handle = fopen($form_state['all_values']['constants_file'], "r")) !== FALSE) {
-        // Read first line to get xpath/header info
-        $headers = fgetcsv($file_handle);
-        // Read the next line to get data
-        $data = fgetcsv($file_handle);
-        // Save the data in $form_state['all_values']['constants']
-        for ($i=0; $i<count($headers); $i++) {
-          $form_state['all_values']['constants'][$headers[$i]] = $data[$i];
+      if (isset($form_state['all_values']['constants_csv'])) {
+        $constants = $form_state['all_values']['constants_csv']->uri;
+        if ($file_handle = fopen($constants, 'r')) {
+          $headers = fgetcsv($file_handle);  // Read first line to get xpath/header info
+          $data = fgetcsv($file_handle);     // Read the next line to get data
+          for ($i = 0; $i < count($headers); $i++) {  // Save the data in $form_state['all_values']['constants']
+            $form_state['all_values']['constants'][$headers[$i]] = $data[$i];
+          }
+          fclose($file_handle);  // Close file connection
         }
-        //close file connection
-        fclose($file_handle);
       }
 
       // Do something with all_values and redirect away from the form!
@@ -154,8 +151,8 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#default_value' => TRUE,
       );
 
-      $form['constants_file'] = array(
-        '#name' => 'files[constants_file]',
+      $form['constants_csv'] = array(
+        '#name' => 'files[constants_csv]',
         '#type' => 'file',
         '#title' => t('Select your constants CSV File.'),
         '#description' => t('Allowed file types are .csv and .txt'),
@@ -169,7 +166,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#title' => t('Map CSV Fields to XPaths'),
         '#description' => t('If row 1 of the selected CSV file already contains a mapped list of MODS XPaths you can skip the other parameters in this section.'),
       );
-      
+
       $form['options_fieldset']['skip_field_mapping'] = array(
         '#type' => 'checkbox',
         '#title' => t('CSV First Row Already Contains the Field Mapping.'),
@@ -231,7 +228,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#title' => t('Provide Credentials for Content Download'),
         '#description' => t('These parameters are only necessary if your CSV file includes an OBJ column indicating where each content objet is stored. By default the download process is dictated by your hook_fetch_OBJ( ) function.  See icg_csv_import.api.php for details.'),
       );
-      
+
       $form['credentials_fieldset']['credentials_username'] = array(
         '#type' => 'textfield',
         '#title' => t('File Transfer Username'),
@@ -352,7 +349,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
       $form = $step3;
       dpm($form);
-      
+
       break;
 
   endswitch;
@@ -384,12 +381,12 @@ function _icg_csv_import_make_review_form($merged, &$step3, $form_state, $fields
         );
       }
     }
-    
+
     // Get the list of CSV column names from $form_state['all_values']['csvColumns']
     $csvColumns = $form_state['all_values']['csvColumns'];
   }
-  
-  // Loop through each element of $merged.  If the element has a '#hash' $value 
+
+  // Loop through each element of $merged.  If the element has a '#hash' $value
   // which is in $fieldsets, use it.
   foreach ($merged as $key => $value) {
     if (isset($value['#hash']) && in_array($value['#hash'], $fieldsets)) {
@@ -397,7 +394,7 @@ function _icg_csv_import_make_review_form($merged, &$step3, $form_state, $fields
     }
 
     if (isset($value['#originalType'])) { $original = $value['#originalType']; }
-    
+
     // If the current element has both 'csv' and 'xpath' $value,
     // then it must represent an imported or constant field; display it.
     if (!empty($value['csv']) && isset($value['xpath'])) {
@@ -415,7 +412,7 @@ function _icg_csv_import_make_review_form($merged, &$step3, $form_state, $fields
 
       $csv = $value['csv'];
       $fromCSV = in_array($csv, $csvColumns);
-      
+
       $step3[$fieldset][$container][$key] = array(
         '#type' => 'textfield',
         '#title' => "'$key' XPath for CSV column '$csv': ",
@@ -425,8 +422,8 @@ function _icg_csv_import_make_review_form($merged, &$step3, $form_state, $fields
         '#required' => FALSE,
         '#default_value' => $value['xpath'],
       );
-      
-      if (!$fromCSV) { $step3[$fieldset][$container][$key]['#title'] = "'$key' XPath is: "; } 
+
+      if (!$fromCSV) { $step3[$fieldset][$container][$key]['#title'] = "'$key' XPath is: "; }
 
       // If this field uses a constant or if it was originally a select box...present a field box for that.
       if ($useConstant) {
@@ -476,11 +473,11 @@ function icg_csv_import_validate($form, &$form_state) {
   }
 
   // Check for a new uploaded constants CSV.
-  $file = file_save_upload('constants_file', $validators);
+  $file = file_save_upload('constants_csv', $validators);
   if (isset($file)) {
     // File upload was attempted.
     if ($file) {
-      $form_state['values']['constants_file'] = $file;  // Put the temporary file in $form_values so we can save it on submit.
+      $form_state['values']['constants_csv'] = $file;  // Put the temporary file in $form_values so we can save it on submit.
     } else {
       form_set_error('icg_csv_import', t('The constants CSV file could not be uploaded.'));  // File upload failed.
     }
