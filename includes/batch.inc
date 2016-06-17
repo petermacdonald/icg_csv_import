@@ -51,12 +51,9 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
  * and fire them off.
  *
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
- *
- * function icg_csv_import_form_submit(&$form, &$form_state) {
  */
 function icg_csv_import_build_batch($form_state) {
   $module_name = basename(__FILE__, '.module');
-  static $temporary = '/tmp';
   static $update;
 
   $batch = array(
@@ -88,9 +85,9 @@ function icg_csv_import_build_batch($form_state) {
       }
     }
 
-    // Open a temporary .csv file and write the $marker cell followed by $headers.
-    $history = $temporary.'/CSV_import_history_'.$marker.'.csv';
-    if (!$temp = fopen($history,'w')) {
+    // Open a history .csv file and write the $marker cell followed by $headers.
+    $history = 'public://CSV_import_history_'.$marker.'.csv';
+    if (!$temp = fopen($history, 'w')) {
       watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
     }
@@ -182,6 +179,15 @@ function icg_csv_import_import_finished($success, $results, $operations) {
       drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', array('%csv_directory' => $dir)), 'error');
     }
   }
+
+  // Print a Drupal message with a link to download the newly generated $history temporary file.
+  $rows = $results['rows_imported'];
+  $history = $results['parameters']['history'];
+
+  drupal_set_message("CSV import is complete with $rows rows processed.", 'status');
+  $targs = array( '!csv_url' => l(check_plain($history), file_create_url($history)), );
+  drupal_set_message(t('Click the link provided to download a CSV file reflecting the history of this import: !csv_url', $targs), 'status');
+
   return t('The CSV import has completed.');
 }
 
@@ -203,7 +209,11 @@ function icg_csv_import_remember($filename, $parameters, $headers, &$context) {
  * Lifted from https://github.com/GiantRobot/icg_csv_import/blob/7.x-1.x/icg_csv_import.module
  */
 function icg_csv_import_import_line($line, &$context) {
-  $context['results']['rows_imported']++;
+  if (isset($context['results']['rows_imported'])) {
+    $context['results']['rows_imported']++;
+  } else {
+    $context['results']['rows_imported'] = 1;
+  }
   $line = $cleaned_line = array_map('base64_decode', $line);
 
   // dpm($context);
@@ -566,7 +576,9 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     $timestamp = $api_m->modifyObject($pid, "I", $owner, "Object set inactive via CSV import.");
   }
 
-  drupal_set_message("Successfully created new object '$pid' via CSV import.");
+  $pidURL = $GLOBALS['base_url'].'/islandora/object/'.$pid;
+  $targs = array( '!obj_url' => l(check_plain($pid), check_plain($pidURL)), );
+  drupal_set_message(t("Successfully created new object '!obj_url' via CSV import.", $targs), 'status');
 
   return $pid;
 }
