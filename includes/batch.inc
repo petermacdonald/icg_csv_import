@@ -102,7 +102,7 @@ function icg_csv_import_build_batch($form_state) {
 
     // Determine if a date/time marker is already present in the first $headers cell.  If yes,
     // this process will update the first column, otherwise it will append a new column of data
-    // the the history.
+    // to the history.
     if ($previous = strtotime($record[0])) {
       $update = TRUE;
       $record[0] = $marker;
@@ -278,19 +278,10 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $record = $row;
   $headers = $head;
 
-  /* If $constants are defined, append their keys to $headers and their values to $record.
-  if (!empty($constants)) {
-    foreach ($constants as $key => $value) {
-      $headers[] = $key;
-      $record[] = $value;
-    }
-  }*/
-
   // Check for a hashtag (comment) marker at the start of $row.  If found then echo
   // $row into the history file but do nothing else.
   if (_startsWith($record[0],'#')) {
     $fp = fopen($history,'a');    // open the history CSV file to append data
-    if (!$update) array_unshift($record, '#');
     fputcsv($fp, $record);            // append $record as-is to the history
     fclose($fp);
     return TRUE;
@@ -340,16 +331,16 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   // Create a new object with $mods as it's MODS datastream and return the object's PID.
   if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj, $credentials, $inactive)) {
     if ($update) {
-      $record[0] = $pid;
+      $record[0] = "# ".$pid;
     } else {
-      array_unshift($record, $pid);
+      array_unshift($record, "# ".$pid);
     }
   } else {
     if ($update) {
-      $record[0] = 'Import Failed';
+      $record[0] = "# Import Failed";
     }
     else {
-      array_unshift($record, 'Import Failed');
+      array_unshift($record, '# Import Failed');
     }
   }
 
