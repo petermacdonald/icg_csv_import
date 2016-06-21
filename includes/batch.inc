@@ -300,8 +300,8 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   //
   // Loop $i through $headers and $record adding data elements to $doc along the way.
   // Skip all comment (# as first character) rows and empty $headers or $row cells.
-  // Look for the optional "special" $headers 'LABEL, 'OBJ' and 'CModel' which mark the
-  // columns of $row that contain the object label, OBJ content filename, and
+  // Look for the optional "special" $headers 'LABEL, 'OBJ_Prefix', 'OBJ' and 'CModel' which mark the
+  // columns of $row that contain the object label, OBJ content filepath, and
   // content model, respectively.
 
   for ($i=0, $parent=NULL; $i<$length; $i++) {
@@ -309,8 +309,10 @@ function icg_csv_import_batch_item($head, $row, $controls) {
     if (empty($row[$i])) { continue; }   // $row[$i] is empty...skip it
     if ($headers[$i] === "LABEL") {
       $label = $row[$i];
+    } else if ($headers[$i] === "OBJ_Prefix") {
+      $obj1 = $row[$i];
     } else if ($headers[$i] === "OBJ") {
-      $obj = $row[$i];
+      $obj2 = $row[$i];
     } else if ($headers[$i] === "CMODEL") {
       $cmodel = $row[$i];
     } else {
@@ -318,6 +320,11 @@ function icg_csv_import_batch_item($head, $row, $controls) {
       $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
     }
   }
+
+  // Concatenate $obj1 and $obj2, if present, to make a full page specification in $obj.
+  $obj = '';
+  if (!empty($obj1)) { $obj = $obj1; }
+  if (!empty($obj2)) { $obj .= $obj2; }
 
   // Save $doc as a temporary file for debugging purposes.
   $temp = drupal_tempnam($temporary, 'XML_');
