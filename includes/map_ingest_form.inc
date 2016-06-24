@@ -214,7 +214,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#description' => t('Enter the character that separates fields in your CSV file.'),
         '#size' => 10,
         '#required' => TRUE,
-        '#default_value' => ',',
+        '#default_value' => '&#x9;',
       );
 
       $form['ingest_as_inactive'] = array(

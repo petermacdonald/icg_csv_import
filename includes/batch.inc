@@ -66,7 +66,7 @@ function icg_csv_import_build_batch($form_state) {
   ) ;
 
   $csv_filename = $form_state['all_values']['csv_file']->uri;
-  $delimiter = $form_state['all_values']['csv_delimeter'];
+  $delimiter = $form_state['all_values']['csv_delimiter'];
 
   if ($handle = fopen($csv_filename, 'r')) {
     if ($form_state['all_values']['skip_field_mapping']) {
