@@ -5,7 +5,7 @@
  *
  * @param $csv_file
  * @return bool
- */
+ *
 function icg_csv_import_readCSV($csv_file, $parent, $ns) {
   ini_set("auto_detect_line_endings", true);
   $csv_data = array();
@@ -15,12 +15,12 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
   if (($file_handle = fopen($csv_file, "r")) !== FALSE) {
 
     //read first line to get header names and number of headers
-    $csv_headers = fgetcsv($file_handle);
+    $csv_headers = fgetcsv($file_handle, 0, "/t");
     $csv_headers_number = count($csv_headers);
     $entry = array();
 
     //check to see if number of row data matches number of headers
-    while (($row = fgetcsv($file_handle)) !== FALSE) {
+    while (($row = fgetcsv($file_handle, 0, "/t")) !== FALSE) {
       $number_of_row_data = count($row);
 
       //if numbers match, enter into arrays
@@ -44,7 +44,7 @@ function icg_csv_import_readCSV($csv_file, $parent, $ns) {
     return FALSE;
   }
   return TRUE;
-}
+} */
 
 /**
  * Handle form submission. Read the CSV into a set of batch operations
@@ -66,10 +66,11 @@ function icg_csv_import_build_batch($form_state) {
   ) ;
 
   $csv_filename = $form_state['all_values']['csv_file']->uri;
+  $delimiter = $form_state['all_values']['csv_delimeter'];
 
   if ($handle = fopen($csv_filename, 'r')) {
     if ($form_state['all_values']['skip_field_mapping']) {
-      $headers = fgetcsv($handle);   // first line is $headers
+      $headers = fgetcsv($handle, 0, $delimiter);   // first line is $headers
     } else {
       $headers = $form_state['all_values']['crosswalk'];  // get $headers from the crosswalk
     }
@@ -112,7 +113,7 @@ function icg_csv_import_build_batch($form_state) {
     }
 
     // Write the $headers to the history file and close it.
-    fputcsv($fp, $record);
+    fputcsv($fp, $record, $delimiter);
     fclose($fp);
 
     // Get the parent_pid parameter and save it.  @TODO...remove, no longer needed
@@ -125,7 +126,7 @@ function icg_csv_import_build_batch($form_state) {
     $batch['operations'][] = array('icg_csv_import_remember', array($csv_filename, $form_state['all_values'], $headers));
 
     // Read and process the CSV file one line at a time
-    while ($line = fgetcsv($handle)) {
+    while ($line = fgetcsv($handle, 0, $delimiter)) {
       // If $constants is defined, append the $values of $constants to $line
       $full_line = $line;
       if (!empty($constants)) {
@@ -270,6 +271,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $labelXPath = $controls['label_field'];
   $credentials['username'] = $controls['credentials_username'];
   $credentials['password'] = $controls['credentials_password'];
+  $delimiter = $controls['csv_delimiter'];
 
   $format = 'Y-m-d:H:i:s';
   $marker = date($format);
@@ -282,7 +284,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   // $row into the history file but do nothing else.
   if (_startsWith($record[0],'#')) {
     $fp = fopen($history,'a');    // open the history CSV file to append data
-    fputcsv($fp, $record);            // append $record as-is to the history
+    fputcsv($fp, $record, $delimiter);            // append $record as-is to the history
     fclose($fp);
     return TRUE;
   }
@@ -353,7 +355,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
 
   // Append this $row result to the history
   $fp = fopen($history, 'a');    // open the history CSV file to append data
-  fputcsv($fp, $record);         // append the $pid and data ($row)
+  fputcsv($fp, $record, $delimiter);         // append the $pid and data ($row)
   fclose($fp);
 
   return $pid;
