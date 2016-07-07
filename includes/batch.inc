@@ -1,5 +1,11 @@
 <?php
 
+/* @TODO
+ * Cells with NO data (empty cells) are generally NOT processed.  However, this fouls
+ * up things in the case of enumerated xpaths since they MUST be processed in proper
+ * numeric order!
+ */
+
 /**
  * David's readCSV() function.
  *
@@ -7,43 +13,43 @@
  * @return bool
  *
 function icg_csv_import_readCSV($csv_file, $parent, $ns) {
-  ini_set("auto_detect_line_endings", true);
-  $csv_data = array();
-  $rowcount = 0;
+ini_set("auto_detect_line_endings", true);
+$csv_data = array();
+$rowcount = 0;
 
-  //open csv file
-  if (($file_handle = fopen($csv_file, "r")) !== FALSE) {
+//open csv file
+if (($file_handle = fopen($csv_file, "r")) !== FALSE) {
 
-    //read first line to get header names and number of headers
-    $csv_headers = fgetcsv($file_handle, 0, "/t");
-    $csv_headers_number = count($csv_headers);
-    $entry = array();
+//read first line to get header names and number of headers
+$csv_headers = fgetcsv($file_handle, 0, "/t");
+$csv_headers_number = count($csv_headers);
+$entry = array();
 
-    //check to see if number of row data matches number of headers
-    while (($row = fgetcsv($file_handle, 0, "/t")) !== FALSE) {
-      $number_of_row_data = count($row);
+//check to see if number of row data matches number of headers
+while (($row = fgetcsv($file_handle, 0, "/t")) !== FALSE) {
+$number_of_row_data = count($row);
 
-      //if numbers match, enter into arrays
-      if ($number_of_row_data == $csv_headers_number) {
-        $entry = $row;
-        $pid = icg_csv_import_batch_item($csv_headers, $entry, $parent, $ns, $inactive=FALSE);
-      }
-      //if numbers don't match
-      else {
-        echo("CSV Reader: Invalid number of columns at line " . ($rowcount + 2) . " (, row " . ($rowcount + 1) . ") in ".$csv_file.". Expected=$csv_headers_number; Got=$number_of_row_data");
-        return FALSE;
-      }
-      $rowcount++;
-    }
+//if numbers match, enter into arrays
+if ($number_of_row_data == $csv_headers_number) {
+$entry = $row;
+$pid = icg_csv_import_batch_item($csv_headers, $entry, $parent, $ns, $inactive=FALSE);
+}
+//if numbers don't match
+else {
+echo("CSV Reader: Invalid number of columns at line " . ($rowcount + 2) . " (, row " . ($rowcount + 1) . ") in ".$csv_file.". Expected=$csv_headers_number; Got=$number_of_row_data");
+return FALSE;
+}
+$rowcount++;
+}
 
-    //close file connection
-    fclose($file_handle);
-  }
-  else {
-    echo("CSV Reader: Could not read CSV file: ".$csv_file.".csv");
-    return FALSE;
-  }
-  return TRUE;
+//close file connection
+fclose($file_handle);
+}
+else {
+echo("CSV Reader: Could not read CSV file: ".$csv_file.".csv");
+return FALSE;
+}
+return TRUE;
 } */
 
 /**
@@ -66,7 +72,7 @@ function icg_csv_import_build_batch($form_state) {
   ) ;
 
   $csv_filename = $form_state['all_values']['csv_file']->uri;
-  $delimiter = $form_state['all_values']['csv_delimiter'];
+  $delimiter = ($form_state['all_values']['csv_delimiter'] ? $form_state['all_values']['csv_delimiter'] : "\t");
 
   if ($handle = fopen($csv_filename, 'r')) {
     if ($form_state['all_values']['skip_field_mapping']) {
@@ -127,6 +133,9 @@ function icg_csv_import_build_batch($form_state) {
 
     // Read and process the CSV file one line at a time
     while ($line = fgetcsv($handle, 0, $delimiter)) {
+      // Stop the import process if the first cell in the line contains '# STOP'.
+      if ($line[0] === '# STOP') break;
+
       // If $constants is defined, append the $values of $constants to $line
       $full_line = $line;
       if (!empty($constants)) {
@@ -271,7 +280,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $labelXPath = $controls['label_field'];
   $credentials['username'] = $controls['credentials_username'];
   $credentials['password'] = $controls['credentials_password'];
-  $delimiter = $controls['csv_delimiter'];
+  $delimiter = ($controls['csv_delimiter'] ? $controls['csv_delimiter'] : "\t");
 
   $format = 'Y-m-d:H:i:s';
   $marker = date($format);
@@ -291,6 +300,9 @@ function icg_csv_import_batch_item($head, $row, $controls) {
 
   // Build a simple MODS DOMDocument to hold the data.
   $doc = new DOMDocument('1.0');
+  $doc->preserveWhiteSpace = false;
+  $doc->formatOutput = true;
+
   $xmlns = $doc->createAttribute('xmlns');
   $xmlns->value = $nsU;
   $root = _make_node($doc, $doc, $ns, $xmlns, NULL);
@@ -307,19 +319,33 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   // content model, respectively.
 
   for ($i=0, $parent=NULL; $i<$length; $i++) {
+    $data = $row[$i];
     if (empty($headers[$i]) || _startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
-    if (empty($row[$i])) { continue; }   // $row[$i] is empty...skip it
+    if (empty($data)) { // $data is empty...skip it but ONLY IF $headers[$i] has NO index!
+      if (_has_index($headers[$i])) {
+        $data = "Unknown";  // $headers[$i] carries an index...substitute 'Unknown' in place of $data
+      } else {
+        continue;
+      }
+    }
     if ($headers[$i] === "LABEL") {
-      $label = $row[$i];
+      $label = $data;
     } else if ($headers[$i] === "OBJ_Prefix") {
-      $obj1 = $row[$i];
+      $obj1 = $data;
     } else if ($headers[$i] === "OBJ") {
-      $obj2 = $row[$i];
+      $obj2 = $data;
     } else if ($headers[$i] === "CMODEL") {
-      $cmodel = $row[$i];
+      $cmodel = $data;
     } else {
-      if ($headers[$i] === $labelXPath) { $label = $row[$i]; }
-      $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $row[$i]);
+      if ($headers[$i] === $labelXPath) { $label = $data; }
+
+      // Check for '|' value seperators in the data.  Break the data into multiple values when found.
+      if (!strstr($data,'|')) {
+        $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $data);
+      } else {
+        $parts = explode('|', $data);
+        $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $parts);
+      }
     }
   }
 
@@ -407,7 +433,6 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
   static $ns = 'mods';
   static $nsU = 'http://www.loc.gov/mods/v3';
 
-
   // If no parent is provided, assume that we begin from the document root
   $root = $doc->documentElement;
   if (!$parent) { $parent = $root; };
@@ -451,8 +476,10 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
   // If this is not the end of the $xpath, don't set $data!
   if (isset($parts[0])) {
     $text = NULL;
-  } else {
+  } else if (is_array($data)) {
     $text = $data;
+  } else {
+    $text = trim($data);
   }
 
   /* Debugging...
@@ -468,8 +495,18 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
     $parent = $nodes->item(0);  // $index - 1);
     // drupal_set_message("...................... found parent '$parent->nodeName'.", 'info');
   } else {    // $current not found, append a new child node to $parent and make it the new $parent.
-    $parent = _make_node($doc, $parent, $element, $attribute, $text);
-    // drupal_set_message("...................... created node on parent '$parent->nodeName'.", 'info');
+    if (!is_array($text)) {
+      $parent = _make_node($doc, $parent, $element, $attribute, $text);
+      // drupal_set_message("...................... created node on parent '$parent->nodeName'.", 'info');
+    } else {   // multiple $data values exist...make a node from the first, then copy that node for each remaining
+      $original_parent = $parent;
+      $parent = _make_node($doc, $parent, $element, $attribute, $text[0]);
+      $n = count($text);
+      for ($i=1; $i<$n; $i++) {
+        _make_node($doc, $original_parent, $element, $attribute, $text[$i]);
+        // drupal_set_message("...................... created node on parent '$parent->nodeName'.", 'info');
+      }
+    }
   }
 
   // If there are any $parts left, build the $remainder xpath, pass $current as the last xpath processed, and recurse.
@@ -569,6 +606,9 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
   // take the bull by the horns here.
   _make_derivatives($object);
 
+  // Perform any object post-creation cleanup.
+  module_invoke_all('create_object_post_ops', $pid);
+
   // Now, if the object is to be "inactive", set it so.
   if ($inactive) {
     $api_m = $object->repository->api->m;
@@ -623,7 +663,7 @@ function _make_derivatives($object) {
 function _make_node($doc, $parent, $element, $attribute, $value=NULL) {
   // if (empty($value) && empty($attribute)) { return $parent; }  // no $value or $attribute, return the $parent
   $node = $doc->createElement($element);   // create a new $node with name $element
-  $text = $doc->createTextNode(htmlentities($value));   // save $value as new $text node
+  $text = $doc->createTextNode($value);   // save $value as new $text node
   $node->appendChild($text);   // attach the $value to the new $node
   if ($attribute) {
     $node->appendChild($attribute);     // attach $attribute to the new $node
@@ -682,3 +722,16 @@ function _is_unsigned_integer($val) {
     return FALSE;
   }
 }
+
+/**
+ * Determine if $txt has a '[n]' index where n is any integer.
+ *
+ * @param $txt
+ * @return bool
+ */
+function _has_index($txt) {
+  $pattern = "/\w*\[\d+].*/";
+  if (preg_match($pattern, $txt) === 1) { return TRUE; }
+  return FALSE;
+}
+
