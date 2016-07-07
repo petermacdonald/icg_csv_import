@@ -68,9 +68,10 @@ function icg_csv_import_form_submit($form, &$form_state) {
       // Open the constants file, if any
       if (isset($form_state['all_values']['constants_csv'])) {
         $constants = $form_state['all_values']['constants_csv']->uri;
+        $delimiter = ($form_state['all_values']['csv_delimiter'] ? $form_state['all_values']['csv_delimiter'] : "\t");
         if ($file_handle = fopen($constants, 'r')) {
-          $headers = fgetcsv($file_handle);  // Read first line to get xpath/header info
-          $data = fgetcsv($file_handle);     // Read the next line to get data
+          $headers = fgetcsv($file_handle, 0, $delimiter);  // Read first line to get xpath/header info
+          $data = fgetcsv($file_handle, 0, $delimiter);     // Read the next line to get data
           for ($i = 0; $i < count($headers); $i++) {  // Save the data in $form_state['all_values']['constants']
             $form_state['all_values']['constants'][$headers[$i]] = $data[$i];
           }
@@ -145,7 +146,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#name' => 'files[csv_file]',
         '#type' => 'file',
         '#title' => t('Select your CSV File.'),
-        '#description' => t('Allowed file types are .csv and .txt'),
+        '#description' => t('Allowed file types are .csv, .tsv and .txt'),
         '#size' => 200,
         '#required' => TRUE,
         '#default_value' => TRUE,
@@ -155,7 +156,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
         '#name' => 'files[constants_csv]',
         '#type' => 'file',
         '#title' => t('Select your constants CSV File.'),
-        '#description' => t('Allowed file types are .csv and .txt'),
+        '#description' => t('Allowed file types are .csv, .tsv and .txt'),
         '#size' => 200,
         '#required' => FALSE,
         // '#default_value' => TRUE,
@@ -211,10 +212,10 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       $form['csv_delimiter'] = array(
         '#type' => 'textfield',
         '#title' => t('CSV Field Delimiter'),
-        '#description' => t('Enter the character that separates fields in your CSV file.'),
+        '#description' => t('Enter the character that separates fields in your CSV file or leave blank to accept the default tab (\t) character.'),
         '#size' => 10,
-        '#required' => TRUE,
-        '#default_value' => '&#x9;',
+        '#required' => FALSE,
+        '#default_value' => '',
       );
 
       $form['ingest_as_inactive'] = array(
@@ -291,12 +292,12 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
 
         // Set some variables we know we'll end up using.
         $file = $form_state['all_values']['csv_file'];
-        $delimit = $form_state['all_values']['csv_delimiter'];
+        $delimiter = ($form_state['all_values']['csv_delimiter'] ? $form_state['all_values']['csv_delimiter'] : "\t");
         $form_name = $form_state['all_values']['xml_form'];
 
         // Parse our CSV file.
         // @TODO: ask JDP if this is correct CSV.inc use.
-        $csv_prepared = icg_csv_load_csv_data($file->uri, $delimit);
+        $csv_prepared = icg_csv_load_csv_data($file->uri, $delimiter);
         $csv_parsed = icg_csv_parse_csv_data($csv_prepared);
 
         // Create an array of options for our form. Include an 'ignore' option.
@@ -459,7 +460,7 @@ function _icg_csv_import_make_review_form($merged, &$step3, $form_state, $fields
  * @param $form_state
  */
 function icg_csv_import_validate($form, &$form_state) {
-  $validators = array('file_validate_extensions' => array('csv txt'));
+  $validators = array('file_validate_extensions' => array('csv tsv txt'));
 
   // Check for a new uploaded CSV.
   $file = file_save_upload('csv_file', $validators);
