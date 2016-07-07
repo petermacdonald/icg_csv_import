@@ -556,7 +556,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
 
   // Make a new MODS datastream for $object from $doc.
   $dsid = 'MODS';
-  $datastream = $object->constructDatastream($dsid);
+  $datastream = $object->constructDatastream($dsid, 'X');
   $datastream->label = 'MODS Record';
   $datastream->mimeType = 'text/xml';
   $datastream->setContentFromString($mods);
@@ -571,7 +571,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
   if ($obj) {
     if ($temp = _fetch_OBJ($obj, $credentials)) {
       $dsid = 'OBJ';
-      $datastream = $object->constructDatastream($dsid);
+      $datastream = $object->constructDatastream($dsid, 'M');
       $datastream->label = 'Object Content';
       $datastream->mimeType = 'image/jpeg';
       $datastream->setContentFromFile($temp, TRUE);
