@@ -81,7 +81,7 @@ function icg_csv_import_build_batch($form_state) {
       $headers = $form_state['all_values']['crosswalk'];  // get $headers from the crosswalk
     }
 
-    $format = 'Y-m-d:H:i:s';
+    $format = 'Y-m-d H:i:s';
     $marker = date($format);
 
     // If $constants are defined, append their keys to $headers.
@@ -94,7 +94,7 @@ function icg_csv_import_build_batch($form_state) {
 
     // Parse the $csv_filename into constituent parts.
     $info = pathinfo($csv_filename);
-    $extension = (empty($info['extension']) ? '.csv' : $info['extension']);
+    $extension = (empty($info['extension']) ? 'csv' : $info['extension']);
 
     // Open a history file and write the $marker cell followed by $headers.
     $history = 'public://CSV_import_history_'.$marker.'.'.$extension;
