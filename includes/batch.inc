@@ -92,8 +92,12 @@ function icg_csv_import_build_batch($form_state) {
       }
     }
 
-    // Open a history .csv file and write the $marker cell followed by $headers.
-    $history = 'public://CSV_import_history_'.$marker.'.csv';
+    // Parse the $csv_filename into constituent parts.
+    $info = pathinfo($csv_filename);
+    $extension = (empty($info['extension']) ? '.csv' : $info['extension']);
+
+    // Open a history file and write the $marker cell followed by $headers.
+    $history = 'public://CSV_import_history_'.$marker.'.'.$extension;
     if (!$temp = fopen($history, 'w')) {
       watchdog($module_name, "Could not create CSV history file '%history'.", array('%history' => $history), WATCHDOG_ERROR);
       return FALSE;
