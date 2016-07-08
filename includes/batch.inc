@@ -133,9 +133,6 @@ function icg_csv_import_build_batch($form_state) {
 
     // Read and process the CSV file one line at a time
     while ($line = fgetcsv($handle, 0, $delimiter)) {
-      // Stop the import process if the first cell in the line contains '# STOP'.
-      if ($line[0] === '# STOP') break;
-
       // If $constants is defined, append the $values of $constants to $line
       $full_line = $line;
       if (!empty($constants)) {
