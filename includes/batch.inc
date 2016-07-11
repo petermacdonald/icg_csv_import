@@ -1,6 +1,6 @@
 <?php
 
-/* @TODO
+/* 
  * Cells with NO data (empty cells) are generally NOT processed.  However, this fouls
  * up things in the case of enumerated xpaths since they MUST be processed in proper
  * numeric order!
@@ -242,10 +242,10 @@ function icg_csv_import_import_line($line, &$context) {
 }
 
 /**
- * icg_csv_import_batch_item - Generate one new object in Islandora from CSV data.
+ * icg_csv_import_batch_item - Generate, or update, one object in Islandora from CSV data.
  *
- * Generates one new object in the Islandora repository based on the XPaths ($headers)
- * of the destination metadata fields and corresponding $row data.
+ * Generates one new object, or updates/replaces an existing object, in the Islandora
+ * repository based on the XPaths ($headers) of the destination metadata fields and corresponding $row data.
  *
  * @param array() $head - XPaths of destination fields
  * @param array() $row - One CSV row of corresponding data to deliver to destination fields
@@ -283,7 +283,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $credentials['password'] = $controls['credentials_password'];
   $delimiter = ($controls['csv_delimiter'] ? $controls['csv_delimiter'] : "\t");
 
-  $format = 'Y-m-d:H:i:s';
+  $format = 'Y-m-d H:i:s';
   $marker = date($format);
   $path = drupal_get_path('module','icg_csv_import');
 
@@ -291,7 +291,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $headers = $head;
 
   // Check for a hashtag (comment) marker at the start of $row.  If found then echo
-  // $row into the history file but do nothing else.
+  // $row into the history file but do NOTHING else.
   if (_startsWith($record[0],'#')) {
     $fp = fopen($history,'a');    // open the history CSV file to append data
     fputcsv($fp, $record, $delimiter);            // append $record as-is to the history
@@ -319,7 +319,9 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   // columns of $row that contain the object label, OBJ content filepath, and
   // content model, respectively.
 
-  for ($i=0, $parent=NULL; $i<$length; $i++) {
+  $first = ($update ? 1 : 0);
+
+  for ($i=$first, $parent=NULL; $i<$length; $i++) {
     $data = $row[$i];
     if (empty($headers[$i]) || _startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
     if (empty($data)) { // $data is empty...skip it but ONLY IF $headers[$i] has NO index!
@@ -364,8 +366,32 @@ function icg_csv_import_batch_item($head, $row, $controls) {
     debug("Complete XML saved as '$temp'.");
   }
 
-  // Create a new object with $mods as it's MODS datastream and return the object's PID.
-  if ($pid = _icg_make_new_object($parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj, $credentials, $inactive)) {
+  // If we are in $update mode and this record already has a valid PID...purge the existing
+  // object and force the creation of a new object with the same PID ($usePID).
+  $pattern = "/^".$namespace.":\d+$/";
+  $usePID = $namespace;
+
+  if ($update) {
+    $match = preg_match($pattern, $row[0]);
+    if ($match == 1) {
+      $pid = $row[0];
+      if ($object = islandora_object_load($pid)) {
+        $repo = $object->repository;
+        $repo->purgeObject($pid);
+        drupal_set_message("Object $pid has been purged and is to be replaced.", 'status');
+        $usePID = $pid;
+      } else {
+        drupal_set_message("Object $pid could NOT be loaded for update/replacement.", 'error');
+        return FALSE;
+      }
+    } else if (!empty($row[0])) {
+      drupal_set_message("Non-comment value ($row[0]) found in CSV data-column[0] is NOT a valid PID. It will be skipped.", 'warning');
+      return FALSE;
+    }
+  }
+
+  // Create an object with $mods as it's MODS datastream and return the object's PID.
+  if ($pid = _icg_make_new_object($parent_pid, $usePID, $cmodel, $label, $mods, $transform, $obj, $credentials, $inactive)) {
     if ($update) {
       $record[0] = "# ".$pid;
     } else {
@@ -524,7 +550,7 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  * @TODO... MODS is assumed here!
  *
  * @param $parent_pid - The PID of the new object's parent.  Presumably this is a collection object.
- * @param $ns - The namespace (no trailing colon) of the new object.
+ * @param $ns - The namespace (no trailing colon) of the new object OR a valid PID if we are replacing an existing object.
  * @param string $cmodel - The content model to be associated with the new object.
  * @param string $label - The label (title?) to be applied to the Fedora object.
  * @param string $mods - The MODS record content as a string.
@@ -551,7 +577,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     return FALSE;
   }
 
-  $object = $repo->constructObject($ns);    // construct a new object in the specified namespace
+  $object = $repo->constructObject($ns);    // construct an object in the specified namespace...or create the specified object
   $object->models = $content_model;         // associate it with $content_model
   $object->label = $label;                  // use the label provided
 
