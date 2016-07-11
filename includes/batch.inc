@@ -357,14 +357,16 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   if (!empty($obj1)) { $obj = $obj1; }
   if (!empty($obj2)) { $obj .= $obj2; }
 
-  // Save $doc as a temporary file for debugging purposes.
-  $temp = drupal_tempnam($temporary, 'XML_');
+
   $mods = $doc->saveXML();
+
+  /* Save $doc as a temporary file for debugging purposes.
+  $temp = drupal_tempnam($temporary, 'XML_');
   if (!file_put_contents($temp, $mods)) {
     watchdog($module_name, "Could not save XML as a temporary text file.", array( ) , WATCHDOG_WARNING);
   } else {
     debug("Complete XML saved as '$temp'.");
-  }
+  } */
 
   // If we are in $update mode and this record already has a valid PID...purge the existing
   // object and force the creation of a new object with the same PID ($usePID).
