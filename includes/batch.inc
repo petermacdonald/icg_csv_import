@@ -244,7 +244,7 @@ function icg_csv_import_import_line($line, &$context) {
 /**
  * icg_csv_import_batch_item - Generate, or update, one object in Islandora from CSV data.
  *
- * Generates one new object, or updates/replaces an existing object, in the Islandora
+ * Generates one new object, or updates an existing object, in the Islandora
  * repository based on the XPaths ($headers) of the destination metadata fields and corresponding $row data.
  *
  * @param array() $head - XPaths of destination fields
@@ -319,6 +319,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   // columns of $row that contain the object label, OBJ content filepath, and
   // content model, respectively.
 
+  // In case of an $update, shift the $first column one to the right.
   $first = ($update ? 1 : 0);
 
   for ($i=$first, $parent=NULL; $i<$length; $i++) {
@@ -369,21 +370,22 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   } */
 
   // If we are in $update mode and this record already has a valid PID...purge the existing
-  // object and force the creation of a new object with the same PID ($usePID).
+  // object's MODS record and force the creation of a new MODS on the same PID ($usePID).
   $pattern = "/^".$namespace.":\d+$/";
-  $usePID = $namespace;
+  $existing = $update;
 
   if ($update) {
     $match = preg_match($pattern, $row[0]);
     if ($match == 1) {
       $pid = $row[0];
       if ($object = islandora_object_load($pid)) {
-        $repo = $object->repository;
-        $repo->purgeObject($pid);
-        drupal_set_message("Object $pid has been purged and is to be replaced.", 'status');
-        $usePID = $pid;
+        // $repo = $object->repository;
+        // $repo->purgeObject($pid);
+        $object->purgeDatastream("MODS");
+        drupal_set_message("The MODS record of object '$pid' has been purged and is to be replaced.", 'status');
+        $existing = $pid;
       } else {
-        drupal_set_message("Object $pid could NOT be loaded for update/replacement.", 'error');
+        drupal_set_message("Object '$pid' could NOT be loaded for update/replacement.", 'error');
         return FALSE;
       }
     } else if (!empty($row[0])) {
@@ -392,8 +394,9 @@ function icg_csv_import_batch_item($head, $row, $controls) {
     }
   }
 
-  // Create an object with $mods as it's MODS datastream and return the object's PID.
-  if ($pid = _icg_make_new_object($parent_pid, $usePID, $cmodel, $label, $mods, $transform, $obj, $credentials, $inactive)) {
+  // Create an $object, or $update an $existing object, with $mods as it's MODS datastream
+  // and return the object's $pid.
+  if ($pid = _icg_make_new_object($existing, $parent_pid, $namespace, $cmodel, $label, $mods, $transform, $obj, $credentials, $inactive)) {
     if ($update) {
       $record[0] = "# ".$pid;
     } else {
@@ -551,8 +554,10 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  *
  * @TODO... MODS is assumed here!
  *
+ * @param boolean $existing - When TRUE, this function will replace the $existing
+ *   object's MODS record.  Otherwise a new object will be created.
  * @param $parent_pid - The PID of the new object's parent.  Presumably this is a collection object.
- * @param $ns - The namespace (no trailing colon) of the new object OR a valid PID if we are replacing an existing object.
+ * @param $ns - The namespace (no trailing colon) of the new object.
  * @param string $cmodel - The content model to be associated with the new object.
  * @param string $label - The label (title?) to be applied to the Fedora object.
  * @param string $mods - The MODS record content as a string.
@@ -565,7 +570,7 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
  *
  * @return mixed - The PID of the new object, or FALSE if the process failed.
  */
-function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL, $credentials=NULL, $inactive=FALSE) {
+function _icg_make_new_object($existing, $parent_pid, $ns, $cmodel, $label, $mods, $transform, $obj=NULL, $credentials=NULL, $inactive=FALSE) {
   $module_name = basename(__FILE__, '.module');
 
   $content_model = (!$cmodel ? 'islandora:compoundCModel' : $cmodel);
@@ -579,7 +584,14 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     return FALSE;
   }
 
-  $object = $repo->constructObject($ns);    // construct an object in the specified namespace...or create the specified object
+  // If this is NOT an update of an $existing object...
+  if (!$existing) {
+    $object = $repo->constructObject($ns);    // construct an object in the specified $ns namespace
+  } else if (!$object = islandora_object_load($existing)) {
+    watchdog($module_name, "Could not open existing object '%pid' to be updated.", array('%pid' => $existing), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
   $object->models = $content_model;         // associate it with $content_model
   $object->label = $label;                  // use the label provided
 
@@ -593,7 +605,9 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
 
   // Set the object's isMemberOfCollection relation so it becomes part of
   // the $parent_pid collection.
-  $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $parent_pid);
+  if (!$existing) {
+    $object->relationships->add(FEDORA_RELS_EXT_URI, 'isMemberOfCollection', $parent_pid);
+  }
 
   // If $obj is specified, fetch the file contents and make a new OBJ datastream for
   // $object from it.  @TODO...MIME type assumes image/jpeg!
@@ -608,7 +622,7 @@ function _icg_make_new_object($parent_pid, $ns, $cmodel, $label, $mods, $transfo
     }
   }
 
-  // Ingest the new object into Fedora.
+  // Ingest the new, or updated $existing, object into Fedora.
   $pid = $object->id;
   try {
     $repo->ingestObject($object);
