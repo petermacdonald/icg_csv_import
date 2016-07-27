@@ -323,7 +323,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $first = ($update ? 1 : 0);
 
   for ($i=$first, $parent=NULL; $i<$length; $i++) {
-    $data = $row[$i];
+    $data = trim($row[$i]);
     $header = trim($headers[$i]);
     if (empty($header) || _startsWith($header, '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
     if (empty($data)) { // $data is empty...skip it but ONLY IF $headers[$i] has NO index!
