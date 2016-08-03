@@ -315,7 +315,7 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   //
   // Loop $i through $headers and $record adding data elements to $doc along the way.
   // Skip all comment (# as first character) rows and empty $headers or $row cells.
-  // Look for the optional "special" $headers 'LABEL, 'OBJ_Prefix', 'OBJ' and 'CModel' which mark the
+  // Look for the optional "special" $headers 'LABEL, 'OBJ_PREFIX', 'OBJ' and 'CMODEL' which mark the
   // columns of $row that contain the object label, OBJ content filepath, and
   // content model, respectively.
 
@@ -323,32 +323,33 @@ function icg_csv_import_batch_item($head, $row, $controls) {
   $first = ($update ? 1 : 0);
 
   for ($i=$first, $parent=NULL; $i<$length; $i++) {
-    $data = $row[$i];
-    if (empty($headers[$i]) || _startsWith($headers[$i], '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
+    $data = trim($row[$i]);
+    $header = trim($headers[$i]);
+    if (empty($header) || _startsWith($header, '#')) { continue; }   // $headers[$i] is blank or a comment...skip this column
     if (empty($data)) { // $data is empty...skip it but ONLY IF $headers[$i] has NO index!
-      if (_has_index($headers[$i])) {
+      if (_has_index($header)) {
         $data = "Unknown";  // $headers[$i] carries an index...substitute 'Unknown' in place of $data
       } else {
         continue;
       }
     }
-    if ($headers[$i] === "LABEL") {
+    if ($header === "LABEL") {
       $label = $data;
-    } else if ($headers[$i] === "OBJ_Prefix") {
+    } else if ($header === "OBJ_PREFIX") {
       $obj1 = $data;
-    } else if ($headers[$i] === "OBJ") {
+    } else if ($header === "OBJ") {
       $obj2 = $data;
-    } else if ($headers[$i] === "CMODEL") {
+    } else if ($header === "CMODEL") {
       $cmodel = $data;
     } else {
-      if ($headers[$i] === $labelXPath) { $label = $data; }
+      if ($header === $labelXPath) { $label = $data; }
 
       // Check for '|' value seperators in the data.  Break the data into multiple values when found.
       if (!strstr($data,'|')) {
-        $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $data);
+        $parent = _generateNodeFromXPath($doc, $parent, $header, $data);
       } else {
         $parts = explode('|', $data);
-        $parent = _generateNodeFromXPath($doc, $parent, $headers[$i], $parts);
+        $parent = _generateNodeFromXPath($doc, $parent, $header, $parts);
       }
     }
   }
@@ -391,6 +392,8 @@ function icg_csv_import_batch_item($head, $row, $controls) {
     } else if (!empty($row[0])) {
       drupal_set_message("Non-comment value ($row[0]) found in CSV data-column[0] is NOT a valid PID. It will be skipped.", 'warning');
       return FALSE;
+    } else {
+      $existing = FALSE;
     }
   }
 
@@ -511,7 +514,7 @@ function _generateNodeFromXPath($doc, $parent, $xpath, $data=NULL, $previous='' 
   } else if (is_array($data)) {
     $text = $data;
   } else {
-    $text = trim($data);
+    $text = trim($data," \t\n\r\0\x0B\"");
   }
 
   /* Debugging...
@@ -705,7 +708,15 @@ function _make_derivatives($object) {
  */
 function _make_node($doc, $parent, $element, $attribute, $value=NULL) {
   // if (empty($value) && empty($attribute)) { return $parent; }  // no $value or $attribute, return the $parent
-  $node = $doc->createElement($element);   // create a new $node with name $element
+
+  try {
+    $node = $doc->createElement($element);   // create a new $node with name $element
+  } catch (Exception $e) {
+    echo "Caught createElement exception in _make_node: ".$e->getMessage()."\n";
+    echo "Element name is '".$element."' and value is '".$value."'\n";
+    exit("Unrecoverable exception encountered in _make_node.createElement( ).");
+  }
+
   $text = $doc->createTextNode($value);   // save $value as new $text node
   $node->appendChild($text);   // attach the $value to the new $node
   if ($attribute) {
