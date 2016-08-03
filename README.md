@@ -26,7 +26,19 @@ Install it as any other Islandora Drupal module in sites/all/modules.
 
 ## Documentation
 
-The CSV file needs to be comma separate with quotation marks around all values. For sample CSV files see the "examples" directory. Developement is underway to accommodate Joanna's preferred TSV and if Steve gets his way even pipe-delimited files.
+This module is designed to ingest a single CSV file containing one or more object records, with each record representing 
+the MODS metadata and related information required to create one Islandora/Fedora object.  The input data file, or CSV 
+file, may employ any reasonable field seperator; commas are most often used, hence the term comma-seperated-values or CSV, 
+but other delimiters like tabs or semi-colons may be used.  A 'pipe' or vertical bar delimiters are used to seperate multiple 
+values **within** fields, so pipes should NOT be used to delimit the fields themselves.  Values should be enclosed in 
+quotation marks (double quotes, not single). For sample CSV files see the "examples" directory. 
+ 
+The batch process used to import CSV data is file-driven, with most of the necessary input stored directly in the 
+CSV data file.  The module's user interface may be employed to assist with building a suitably structured CSV file.  
+
+
+
+
 
 The CSV import form prompts for
 * Content Model (all items need to use the same content model)
