@@ -23,7 +23,7 @@ function hook_fetch_CSV_defaults( ) {
 
 /**
  * Perform a binary fetch of a named file from storage.  This example performs
- * a simple FTP transfer from a network storage server.
+ * a simple SFTP transfer from a network storage server.
  *
  * @param string $path
  *   The path to the file.
@@ -83,4 +83,17 @@ function hook_fetch_OBJ($path, $credentials) {
   }
 
   return $temp_file;
+}
+
+/**
+ * Perform post-import actions on a single, named object.
+ *
+ * @param string $pid
+ *   The PID of the target object.
+ *
+ * @return NULL
+ */
+function hook_create_object_post_ops($pid) {
+  // Do your thing...here.
+  return;
 }

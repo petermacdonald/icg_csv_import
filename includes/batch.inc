@@ -635,17 +635,21 @@ function _icg_make_new_object($existing, $parent_pid, $ns, $cmodel, $label, $mod
   }
 
   // Now, get the MODS-to-DC transform.
-  $xsl = new DOMDocument( );
-  if (!$xsl->load($transform)) { die("Failed to load Transform file '$transform!'"); }
-  $xslt = new XSLTProcessor( );
-  $xslt->importStyleSheet($xsl);
+  if ($transform) {
+    $xsl = new DOMDocument();
+    if (!$xsl->load($transform)) {
+      die("Failed to load Transform file '$transform!'");
+    }
+    $xslt = new XSLTProcessor();
+    $xslt->importStyleSheet($xsl);
 
-  // Apply the MODS-to-DC transform.
-  $document = new DOMDocument( );
-  $document->loadXml($object['MODS']->content);
-  if ($doc = $xslt->transformToDoc($document)) {
-    $after = $doc->saveXML();
-    $object['DC']->setContentFromString($after);
+    // Apply the MODS-to-DC transform.
+    $document = new DOMDocument();
+    $document->loadXml($object['MODS']->content);
+    if ($doc = $xslt->transformToDoc($document)) {
+      $after = $doc->saveXML();
+      $object['DC']->setContentFromString($after);
+    }
   }
 
   // OK, my hook_CMODEL_PID_islandora_object_ingested function is NOT firing!  So

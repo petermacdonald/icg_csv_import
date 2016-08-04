@@ -173,21 +173,21 @@ This section provides additional screen grabs from our sample data set. Each ima
 
 The use of *OBJ_PREFIX* and *CMODEL* keys is illustrated, and highlighted, in the image below.  Note that the values in the *OBJ_PREFIX* field are valid network directory paths.     
 
-![CSV Data with XPaths](documentation/images/Fossils-04.png?raw=true)
+![CSV Key Examples](documentation/images/Fossils-04.png?raw=true)
 
 XPaths with predicates, highlighted in blue, are illusrated in the next image. 
 
-![CSV Data with XPaths](documentation/images/Fossils-05.png?raw=true)
+![CSV XPaths with Predicates](documentation/images/Fossils-05.png?raw=true)
 
 #### Constants
 
 Take note of the data in the highlighted portion of the image below. The data in these columns are 'constants'; the same value appears in every row within a particular column.   
 
-![CSV Data with XPaths](documentation/images/Fossils-06.png?raw=true)
+![CSV Constants](documentation/images/Fossils-06.png?raw=true)
 
 This data was not part of the original data set, it was added by the cataloger using a special 'constants' CSV file.  That file, depicted in the image below, contains only an XPaths/Keys header row, and a single row of data.    
 
-![CSV Data with XPaths](documentation/images/Fossils-07.png?raw=true)
+![CSV Constants Example File](documentation/images/Fossils-07.png?raw=true)
 
 During batch processing, the module appends the constant file's XPath/Key cells to the CSV file's XPath/Key headers, and subsequently appends a copy of the single line of constants to each line of CSV data during.
 
@@ -197,7 +197,7 @@ The CSV Import process is primarily intended to ingest new objects into existing
 
 A portion of the output from import of our example data, is depicted in the image below.
 
-![CSV Data with XPaths](documentation/images/Fossils-08.png?raw=true)
+![CSV Output File](documentation/images/Fossils-08.png?raw=true)
 
 The highlighted column in this image was prepended to the CSV data during processing.  The first cell in this column is a time-stamp recording the date and time when the import was initiated. The values in the cells below are the PIDs of the objects generated during the import process, and these PIDs are prefixed with a hashtag to render each line in this output file as a comment.  
 
@@ -223,7 +223,7 @@ When an empty cell is encountered in the first column, the corresponding line of
 
 The image below, with modified cells in yellow, illustrates a case for re-import that you might encounter.
 
-![CSV Data with XPaths](documentation/images/Fossils-09.png?raw=true)
+![Edited CSV Output Ready for Input](documentation/images/Fossils-09.png?raw=true)
 
 In our fossils sample we discovered, after an initial import, that some objects should have been ingested as compound parents with no content OBJ of their own.  In our example, objects *grinnell:17037* and *grinnell:17061* were intended to be **one** object illustrating two similar fossils.  These objects were imported without a corresponding 'parent' compound object to attach themselves to, so we performed the following series of edits **in the output CSV file** to introduce necessary changes.
 
@@ -242,6 +242,36 @@ This change effectively removes the OBJ and OBJ_PREFIX keys from the import.  Si
 The output from our re-import operation will be another complete CSV file, with an updated time-stamp, and comment PID entries in place of the three cells in column one that were updated.  If additional updates are needed this output CSV file can be edited and re-imported. 
 
 Rinse and repeat, as often as you like. The possibilities are endless. Powerful stuff indeed!
+
+### OBJ Content Handling
+
+As mentioned earlier in this document, CSV Import provides the ability to download one content file per imported object.  The content can be an image, a PDF document, an audio recording, or any other content form supported by an accompanying Islandora content model. Specification of the file's path and file name can be provided in OBJ_PREFIX and OBJ key columns, respectively.  The corresponding specification of an object's content model can be provided in a CMODEL key column.
+ 
+OBJ content files are imported using a Drupal 'hook' function named *hook_fetch_OBJ* as documented in this module's *icg_csv_import.api.php* file. 
+ 
+Your *hook_fetch_OBJ* function will only be called if all three of the following input parameters (see the *CSV Import User Interface* section of this document) are provided:
+ 
+ * a complete and valid path to the content file,
+ * a valid username with permissions to read the content file, and 
+ * a corresponding, valid password to permit read access to the content path and file name.
+ 
+The module will concatenate the OBJ_PREFIX and OBJ key fields together, with NO additional separator, and pass the concatenated result to your *hook_fetch_OBJ* function.
+
+### Default Values
+
+CSV Import may be driven by 'default' values in some circumstances and another Drupal 'hook' function named *hook_fetch_CSV_defaults*.  This function is documented in the module's module's *icg_csv_import.api.php* file.  The function returns a PHP array named $values, and currently supports the definition of the following defaults:
+
+ * label_field => Specifies the MODS field used to define an object's LABEL.  Usually /mods/titleInfo/title.
+ * transform => Specifies the full path of the MODS-to-DC transform to run on each object MODS record.
+
+### Import Post-Processing
+
+Once an object has been successfully created, or updated, from a single line of CSV data, the module will perform the following sequence of post-processing actions upon that object:
+
+1. If a valid $values\['transform'\] (see the *Default Values* section above) XSLT transform file was specified, the module will invoke the transform to generate a new DC datastream from the object's MODS datastream.
+2. The module will regenerate all derivative datastreams as specified by the object's content model (CMODEL).
+3. The module invokes any *hook_create_object_post_ops* defined by the user.  See *icg_csv_import.api.php* for details.
+ 
 
 ### CSV Import User Interface
 
