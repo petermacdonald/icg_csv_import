@@ -81,7 +81,7 @@ function icg_csv_import_form_submit($form, &$form_state) {
 
       // Do something with all_values and redirect away from the form!
       icg_csv_import_build_batch($form_state);
-      dpm($form_state);
+      if (module_exists('devel')) { dpm($form_state); }
       break;
 
   endswitch;
@@ -337,7 +337,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       $merged = array_merge_recursive($form_state['all_values']['xpaths'], $values);
       _icg_csv_import_convert_array_keys($merged, '0', 'csv');
       _icg_csv_import_remove_numeric_keys($merged);
-      dpm($merged);
+      if (module_exists('devel')) { dpm($merged); }
 
       // Make a review form from $merged.
       $step3 = array( );
@@ -349,7 +349,7 @@ function icg_csv_import_get_form($step, $collection, &$form_state) {
       );
 
       $form = $step3;
-      dpm($form);
+      if (module_exists('devel')) { dpm($form); }
 
       break;
 
