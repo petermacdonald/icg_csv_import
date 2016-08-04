@@ -273,16 +273,47 @@ Once an object has been successfully created, or updated, from a single line of 
 3. The module invokes any *hook_create_object_post_ops* defined by the user.  See *icg_csv_import.api.php* for details.
  
 
+### Launching a CSV Import
+
+Once the module is installed, a user with administration rights can launch it by navigating to the target collection where you would like to import new, or update existing objects.  Click the *Manage* tab like the one shown in our *Geology Collection* example below.  
+ 
+![Sample Collection Screen](documentation/images/Fossils-10.png?raw=true)
+ 
+A *Manage* screen similar to the one shown below should open. The path to this screen is generally of the form: http://your.server.here/islandora/object/collection:pid/manage.
+
+![Collection Manage Screen](documentation/images/Fossils-11.png?raw=true) 
+
+In the *Manage* screen you should find a *CSV Import* tab or button.  Click that tab, or button, to begin the import process by opening the CSV Import user interface. 
+
 ### CSV Import User Interface
 
-The CSV import form prompts for
+The CSV Import user interface consists of two, or in some cases three, input data forms or pages.
 
-* Content Model (all items need to use the same content model)
-* Metadata schema (MODS, other may be added later)
-* namespace (all items need to use the same namespace)
-* file to import (the CSV file)
-** If the file uploaded in not valid, it will not be ingestable.
-* field-by-field mapping of the CSV file to MODS elements.
+The first form/page prompts the user for a number of required and optional parameters.  Becuase the input form is rather large, the example below is presented in two parts.  The user may have to scroll to see the entire form.
+
+![CSV Import UI Screen 1](documentation/images/Fossils-12.png?raw=true) 
+
+![CSV Import UI Screen 2](documentation/images/Fossils-13.png?raw=true) 
+
+This first page CSV Import form prompts for:
+
+* The file to import (the CSV file),
+* An optional CSV constants file to import (another CSV file),
+* A checkbox to indicate if the CSV file already contains XPaths or not, or
+    * The destination content model (all items need to use the same content model), and
+    * An Islandora XML input form corresponding to the selected destination content model.
+    
+The first form/page also solicits input for:
+    
+* The namespace that new objects will be imported into (all items need to use the same namespace),
+* The CSV's field delimiter character (leave this blank to accept the default of tab-delimited fields),
+* A checkbox option to ingest new objects with a status of 'Inactive', and
+* Content file download credentials in the form of a username and corresponding password.
+
+The second CSV Import form/page changes based on the status of the first checkbox control.  
+
+* If XPaths **are** already present in the specified CSV file, the second screen will simply ask for confirmation to proceed.  
+* If XPaths **are not** in the CSV file, the second screen will provide for field-by-field mapping of the CSV file headers to MODS elements, as determined by the destination content model and selected Islandora XML input form.
 
 ## Troubleshooting/Issues
 
