@@ -139,9 +139,9 @@ function _icg_form_array_iterator_set_options(&$form, &$array, $mappable_options
     
     $hash = $array['#hash'];
     if (!$found = _icg_csv_import_recursive_array_search($xpaths, '#hash', $hash)) {
-      dsm("Could not find #hash => '$hash' for $oldType form element '$title' in the XPaths array.", 'Error');
+      drupal_set_message("Could not find #hash => '$hash' for $oldType form element '$title' in the XPaths array.", 'Error');
     } else if (!isset($found[0]['xpath'])) {
-      dsm("The $oldType form element '$title' has no XPath.", 'Warning');
+      drupal_set_message("The $oldType form element '$title' has no XPath.", 'Warning');
     } else {
       $xp = $found[0]['xpath'];
       $array['#description'] = 'This '. $oldType .' field will map to <b>' . $xp . '</b>.';
