@@ -167,6 +167,10 @@ The complete set of Keys and their corresponding behavior in the system are docu
 * **CMODEL** - The Islandora content model of the imported object.  Examples may include "islandora:sp\_basic\_image", "islandora:compoundCModel", etc.
 * **LABEL** - Indicates that corresponding data is to be used as the object label or title.
 
+##### Pipes
+
+[Need some documentation here!]
+
 ##### More Examples
 
 This section provides additional screen grabs from our sample data set. Each image depicts the same data, but with different highlighted features. 
