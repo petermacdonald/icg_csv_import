@@ -169,7 +169,7 @@ The complete set of Keys and their corresponding behavior in the system are docu
 
 ##### Pipes
 
-A pipe, the vertical bar character (|), is used to seperate multiple values within a single field.  For example, the following sample of MODS metadata contains multiple title values, actually these are "alternative" titles, and this kind of construct is easy to import.
+A pipe, the vertical bar character (|), is used to seperate multiple values within a single field.  For example, the following sample of MODS metadata contains multiple "alternative" titles, and this kind of construct is easy to import.
 
     <mods>
    		<titleInfo type='alternative'>
@@ -180,7 +180,7 @@ A pipe, the vertical bar character (|), is used to seperate multiple values with
         </titleInfo>
    	</mods>	
 
-The XPath and corresponding data, with pipes, used to import this is showing below.
+The XPath and corresponding data, with pipes, used to import this is shown below.
 
     XPath   -> /mods/titleInfo[@type='alternative']/title
     Data    -> Grinnell College|Rand Gymnasium|women's gymnasium|men's gymnasium
