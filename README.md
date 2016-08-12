@@ -155,7 +155,9 @@ The XPath 1.0 specification includes many useful tools, but the CSV Import modul
 	Note that in the line above the declaration of *name[3]* appears before the declaration of *name[2]* and this may create errors in the imported data.
 
 * **Complex XPaths are NOT Permitted** - As mentioned earlier, the XPath specification, even in version 1.0, provides numerous functions and constructs to perform complex node selection.  But CSV Import uses XPaths to build data, not to select it, so things like XPath functions and complex structures are not supported.
-	
+
+* **Use Single Quotes Around Attributes and NO Slashes** - Attributes within XPaths, like the "provenance" clause in */mods/note[@type=__'provenance'__]* should generally be enclosed in __single quotes__ as shown, not double.  Attribute values with embedded punctuation characters, espeically slashes, like "/mods/note[@type='__citation/reference__']", should be avoided whenever possible.
+
 ##### Keys
 
 Keys, or keywords, like *OBJ* in the second column of our example, are always expressed in uppercase.  *OBJ* is the keyword which informs the system to read a filename from the corresponding data, and the file identifed by *OBJ* may be subsequently downloaded and saved as the object's content datastream with a datastream ID of OBJ.
