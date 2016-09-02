@@ -167,7 +167,7 @@ The complete set of Keys and their corresponding behavior in the system are docu
 * **OBJ** - The filename, or complete network path, to an object's OBJ (content) datastream.
 * **OBJ_PREFIX** - A prefix, typically the network path to a directory containing the files named in an *OBJ* column.
 * **CMODEL** - The Islandora content model of the imported object.  Examples may include "islandora:sp\_basic\_image", "islandora:compoundCModel", etc.
-* **LABEL** - Indicates that corresponding data is to be used as the object label or title.
+* **LABEL** - Indicates what corresponding data is to be used as the object label or title.
 
 ##### Pipes
 
