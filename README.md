@@ -54,7 +54,7 @@ In the preceeding image, the column of data highlighted in blue has been prepend
 
 The hashtag (#) can be used to specify a comment, and two rules govern them:   
 
-* A hashtag as the **first character** in any value/cell identifies that value as a comment. A hashtag ion any other character position is simply interpreted as part of the data.
+* A hashtag as the **first character** in any value/cell identifies that value as a comment. A hashtag icon in any other character position is simply interpreted as part of the data.
 * A hashtag as the **first character of the first cell in a row** identifies the entire row as a comment. 
 
 Comments in the CSV data are read and recorded during processing, but they are otherwise ignored.
